@@ -9,7 +9,7 @@ import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Iterable, List
+from typing import Any, Dict, Iterable, List
 
 import requests
 import psycopg2
@@ -25,6 +25,11 @@ from ragonometrics.core.io_loaders import (
     run_pdftotext_pages,
 )
 from ragonometrics.core.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
+from ragonometrics.integrations.semantic_scholar import (
+    fetch_semantic_scholar_metadata,
+    format_semantic_scholar_context,
+)
+from ragonometrics.integrations.citec import fetch_citec_plain, format_citec_context
 from ragonometrics.pipeline import call_openai
 
 
@@ -71,6 +76,8 @@ class Paper:
         author: Paper author(s).
         text: Full extracted text, normalized.
         pages: Optional per-page text list.
+        semantic_scholar: Optional Semantic Scholar metadata dict.
+        citec: Optional CitEc citation metadata dict.
     """
 
     path: Path
@@ -78,6 +85,8 @@ class Paper:
     author: str
     text: str
     pages: List[str] | None = None
+    semantic_scholar: Dict[str, Any] | None = None
+    citec: Dict[str, Any] | None = None
 
 
 def load_env(path: Path) -> None:
@@ -201,6 +210,28 @@ def extract_dois_from_text(text: str) -> List[str]:
         dois.add(doi.lower())
 
     return sorted(dois)
+
+
+def extract_repec_handles_from_text(text: str) -> List[str]:
+    """Extract RePEc handles from text.
+
+    Args:
+        text: Input text to scan.
+
+    Returns:
+        List[str]: Unique RePEc handles in order of appearance.
+    """
+    if not text:
+        return []
+    pattern = re.compile(r"\bRePEc:[A-Za-z0-9]+:[A-Za-z0-9]+:[A-Za-z0-9./_-]+", re.IGNORECASE)
+    handles: List[str] = []
+    for match in pattern.finditer(text):
+        handle = match.group(0).rstrip(").,;]")
+        if handle.lower().startswith("repec:"):
+            handle = "RePEc:" + handle[6:]
+        if handle not in handles:
+            handles.append(handle)
+    return handles
 
 
 def fetch_references_from_crossref(doi: str, timeout: int = 10, cache_db_url: str | None = None) -> List[str]:
@@ -741,12 +772,17 @@ def summarize_paper(client: OpenAI, paper: Paper, settings: Settings) -> str:
         settings=settings,
     )
 
+    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+    citec_context = format_citec_context(paper.citec)
     user_input = (
         f"Title: {paper.title}\n"
         f"Author: {paper.author}\n\n"
         f"Context:\n{context}\n\n"
         "Write the summary now."
     )
+    prefix_parts = [ctx for ctx in (semantic_context, citec_context) if ctx]
+    if prefix_parts:
+        user_input = f"{'\n\n'.join(prefix_parts)}\n\n{user_input}"
     return call_openai(
         client,
         model=settings.chat_model,
@@ -771,13 +807,42 @@ def load_papers(paths: Iterable[Path]) -> List[Paper]:
         page_texts = run_pdftotext_pages(path)
         normalized_pages = [normalize_text(p) for p in page_texts if p is not None]
         text = "\n\n".join(p for p in normalized_pages if p)
+        semantic_meta: Dict[str, Any] | None = None
+        citec_meta: Dict[str, Any] | None = None
+        try:
+            dois = extract_dois_from_text(text)
+            repec_handles = extract_repec_handles_from_text(text)
+            semantic_meta = fetch_semantic_scholar_metadata(
+                title=metadata.get("title"),
+                author=metadata.get("author"),
+                doi=dois[0] if dois else None,
+            )
+            if repec_handles:
+                citec_meta = fetch_citec_plain(repec_handles[0])
+        except Exception:
+            semantic_meta = None
+            citec_meta = None
+
+        title = metadata.get("title") or path.stem
+        author = metadata.get("author") or "Unknown"
+        if semantic_meta:
+            s2_title = semantic_meta.get("title")
+            if (not title or title == path.stem) and s2_title:
+                title = s2_title
+            s2_authors = semantic_meta.get("authors") or []
+            names = [a.get("name") for a in s2_authors if isinstance(a, dict) and a.get("name")]
+            if (author.lower() in {"unknown", "none"} or not author) and names:
+                author = ", ".join(names[:3]) + (" et al." if len(names) > 3 else "")
+
         papers.append(
             Paper(
                 path=path,
-                title=metadata["title"],
-                author=metadata["author"],
+                title=title,
+                author=author,
                 text=text,
                 pages=normalized_pages or None,
+                semantic_scholar=semantic_meta,
+                citec=citec_meta,
             )
         )
     return papers

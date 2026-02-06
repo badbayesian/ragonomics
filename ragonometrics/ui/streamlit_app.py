@@ -26,6 +26,8 @@ from ragonometrics.core.main import (
     prepare_chunks_for_paper,
     top_k_context,
 )
+from ragonometrics.integrations.semantic_scholar import format_semantic_scholar_context
+from ragonometrics.integrations.citec import format_citec_context
 from ragonometrics.pipeline import call_openai
 from ragonometrics.core.prompts import RESEARCHER_QA_PROMPT
 from ragonometrics.pipeline.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
@@ -251,6 +253,17 @@ def main():
     st.subheader(paper.title)
     st.caption(f"Author: {paper.author} — {paper.path.name}")
 
+    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+    citec_context = format_citec_context(paper.citec)
+    if semantic_context or citec_context:
+        with st.expander("External Metadata", expanded=False):
+            if semantic_context:
+                st.markdown("**Semantic Scholar**")
+                st.code(semantic_context, language="text")
+            if citec_context:
+                st.markdown("**CitEc**")
+                st.code(citec_context, language="text")
+
     if not chunks:
         st.info("No text could be extracted from this PDF.")
         return
@@ -312,12 +325,18 @@ def main():
                 if cached is not None:
                     answer = cached
                 else:
+                    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+                    citec_context = format_citec_context(paper.citec)
+                    user_input = f"Context:\n{context}\n\nQuestion: {query}"
+                    prefix_parts = [ctx for ctx in (semantic_context, citec_context) if ctx]
+                    if prefix_parts:
+                        user_input = f"{'\n\n'.join(prefix_parts)}\n\n{user_input}"
                     try:
                         answer = call_openai(
                             client,
                             model=selected_model,
                             instructions=RESEARCHER_QA_PROMPT,
-                            user_input=f"Context:\n{context}\n\nQuestion: {query}",
+                            user_input=user_input,
                             max_output_tokens=None,
                             temperature=temperature,
                             usage_context="answer",
@@ -335,7 +354,7 @@ def main():
                                 client,
                                 model=selected_model,
                                 instructions=RESEARCHER_QA_PROMPT,
-                                user_input=f"Context:\n{context}\n\nQuestion: {query}",
+                                user_input=user_input,
                                 max_output_tokens=None,
                                 temperature=None,
                                 usage_context="answer",
