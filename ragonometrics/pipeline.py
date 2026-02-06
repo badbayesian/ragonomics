@@ -9,8 +9,8 @@ import re
 
 from openai import OpenAI
 
-from ragonomics.io_loaders import chunk_words, load_pdf, load_text_file
-from ragonomics.prompts import (
+from ragonometrics.io_loaders import chunk_words, load_pdf, load_text_file
+from ragonometrics.prompts import (
     PIPELINE_CITATION_EXTRACT_INSTRUCTIONS,
     PIPELINE_CITATION_RANK_INSTRUCTIONS,
     PIPELINE_SUMMARY_CHUNK_INSTRUCTIONS,
@@ -513,6 +513,10 @@ def call_openai(
     instructions: str,
     user_input: str,
     max_output_tokens: Optional[int],
+    temperature: Optional[float] = None,
+    usage_context: str = "llm",
+    session_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> str:
     """Call OpenAI Responses API and return text.
 
@@ -522,6 +526,10 @@ def call_openai(
         instructions: System instructions.
         user_input: User input text.
         max_output_tokens: Maximum output tokens.
+        temperature: Optional sampling temperature for response variation.
+        usage_context: Label for the type of request (e.g., "answer", "rerank").
+        session_id: Optional session identifier for grouping usage.
+        request_id: Optional request identifier for per-query usage.
 
     Returns:
         str: Response text.
@@ -531,12 +539,40 @@ def call_openai(
     max_retries = int(os.environ.get("OPENAI_MAX_RETRIES", "2"))
     for attempt in range(max_retries + 1):
         try:
-            resp = client.responses.create(
+            payload = dict(
                 model=model,
                 instructions=instructions,
                 input=user_input,
                 max_output_tokens=max_output_tokens,
             )
+            if temperature is not None:
+                payload["temperature"] = temperature
+            resp = client.responses.create(**payload)
+            try:
+                from ragonometrics.token_usage import record_usage
+
+                usage = getattr(resp, "usage", None)
+                input_tokens = output_tokens = total_tokens = 0
+                if usage is not None:
+                    if isinstance(usage, dict):
+                        input_tokens = int(usage.get("input_tokens") or 0)
+                        output_tokens = int(usage.get("output_tokens") or 0)
+                        total_tokens = int(usage.get("total_tokens") or 0)
+                    else:
+                        input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+                        output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+                        total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+                record_usage(
+                    model=model,
+                    operation=usage_context,
+                    input_tokens=input_tokens,
+                    output_tokens=output_tokens,
+                    total_tokens=total_tokens,
+                    session_id=session_id,
+                    request_id=request_id,
+                )
+            except Exception:
+                pass
             return response_text(resp)
         except Exception as exc:
             if attempt >= max_retries:
@@ -544,7 +580,7 @@ def call_openai(
                 if db_url:
                     try:
                         import psycopg2
-                        from ragonomics import metadata
+                        from ragonometrics import metadata
 
                         conn = psycopg2.connect(db_url)
                         metadata.record_failure(
@@ -908,3 +944,4 @@ def extract_metadata(
         )
 
     return metadata
+

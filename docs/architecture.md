@@ -1,16 +1,16 @@
-# Ragonomics Architecture: Decisions and Rationale
+# Ragonometrics Architecture: Decisions and Rationale
 
-This document summarizes the current Ragonomics architecture, design tradeoffs, and operational guidance.
+This document summarizes the current Ragonometrics architecture, design tradeoffs, and operational guidance.
 
 Overview
 --------
-Ragonomics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes embeddings in FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. DOI metadata can be retrieved from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
+Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes embeddings in FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. DOI metadata can be retrieved from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
 
 Key Components
 --------------
 - Config and prompts
   - `config.toml` (optional) is the primary configuration surface with env-var overrides.
-  - Centralized prompts live in `src/prompts.py`.
+  - Centralized prompts live in `ragonometrics/prompts.py`.
 - PDF extraction and preprocessing
   - `pdftotext` + `pdfinfo` (Poppler) with OCR fallback.
   - Per-page extraction supports provenance (page + word offsets).
@@ -25,11 +25,11 @@ Key Components
   - Postgres metadata stores vectors, index shards, and index version rows.
   - Idempotent indexing based on a deterministic key (same corpus + params).
 - UI and CLI
-  - Streamlit UI (`src/streamlit_app.py`) provides a Chat tab and DOI Network tab.
-  - Console entrypoints: `ragonomics index | query | ui | benchmark`.
+  - Streamlit UI (`ragonometrics/streamlit_app.py`) provides a Chat tab and DOI Network tab.
+  - Console entrypoints: `ragonometrics index | query | ui | benchmark`.
 - Caching
   - Crossref responses cached in Postgres.
-  - Query/answer cache stored in local SQLite (`ragonomics_query_cache.sqlite`).
+  - Query/answer cache stored in local SQLite (`ragonometrics_query_cache.sqlite`).
 
 Data and Metadata Stores
 ------------------------
@@ -38,7 +38,7 @@ Data and Metadata Stores
 - Local artifacts:
   - FAISS indexes in `vectors.index` and versioned shards in `indexes/`.
   - Index version sidecar JSON next to each shard.
-  - Query cache in `ragonomics_query_cache.sqlite`.
+  - Query cache in `ragonometrics_query_cache.sqlite`.
 
 Reproducibility
 ---------------
@@ -60,21 +60,22 @@ Operational Hardening
 
 Evaluation
 ----------
-- `src/eval.py` provides retrieval metrics (recall@k, MRR) and answer proxies
+- `ragonometrics/eval.py` provides retrieval metrics (recall@k, MRR) and answer proxies
   (citation coverage, hallucination proxy, self-consistency).
 - Golden-set format supports curated Q/A and expected citations.
 
 Queueing
 --------
-- Redis + RQ (`src/rq_queue.py`) for async indexing jobs.
+- Redis + RQ (`ragonometrics/rq_queue.py`) for async indexing jobs.
 
 Benchmarks
 ----------
-- `src/benchmark.py` and `tools/benchmark.py` measure indexing, chunking, and retrieval timing.
+- `ragonometrics/benchmark.py` and `tools/benchmark.py` measure indexing, chunking, and retrieval timing.
 
 Entrypoints
 -----------
-- `ragonomics index` builds FAISS indexes.
-- `ragonomics query` runs a question against a paper.
-- `ragonomics ui` launches the Streamlit UI.
-- `ragonomics benchmark` runs the benchmark suite.
+- `ragonometrics index` builds FAISS indexes.
+- `ragonometrics query` runs a question against a paper.
+- `ragonometrics ui` launches the Streamlit UI.
+- `ragonometrics benchmark` runs the benchmark suite.
+

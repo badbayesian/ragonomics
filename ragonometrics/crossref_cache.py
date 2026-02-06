@@ -84,7 +84,7 @@ def fetch_crossref_raw(doi: str, timeout: int = 10) -> Optional[str]:
         Optional[str]: Raw response text.
     """
     url = f"https://api.crossref.org/works/{requests.utils.requote_uri(doi)}"
-    resp = requests.get(url, timeout=timeout, headers={"User-Agent": "Ragonomics/0.1"})
+    resp = requests.get(url, timeout=timeout, headers={"User-Agent": "Ragonometrics/0.1"})
     resp.raise_for_status()
     return resp.text
 
@@ -111,3 +111,4 @@ def fetch_crossref_with_cache(doi: str, db_url: str) -> Optional[str]:
     finally:
         conn.close()
     return None
+

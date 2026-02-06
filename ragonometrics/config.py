@@ -17,12 +17,12 @@ DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.toml"
 
 
 def load_config(path: Path | None) -> Dict[str, Any]:
-    """Load a TOML config file and return the ragonomics section or top-level dict."""
+    """Load a TOML config file and return the ragonometrics section or top-level dict."""
     if not path or not path.exists():
         return {}
     data = tomllib.loads(path.read_text(encoding="utf-8"))
-    if isinstance(data, dict) and "ragonomics" in data and isinstance(data["ragonomics"], dict):
-        return data["ragonomics"]
+    if isinstance(data, dict) and "ragonometrics" in data and isinstance(data["ragonometrics"], dict):
+        return data["ragonometrics"]
     return data or {}
 
 
@@ -72,3 +72,4 @@ def build_effective_config(
         or _env_or_config(env, config, "CHAT_MODEL", "chat_model", "gpt-5-nano"),
     }
     return effective
+

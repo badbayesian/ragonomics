@@ -8,7 +8,7 @@ import faiss
 import numpy as np
 from openai import OpenAI
 
-from ragonomics.main import (
+from ragonometrics.main import (
     Paper,
     Settings,
     embed_texts,
@@ -22,8 +22,8 @@ from datetime import datetime
 import hashlib
 import uuid
 from . import metadata
-from ragonomics.manifest import build_index_version, build_run_manifest, write_index_version_sidecar, write_run_manifest
-from ragonomics.logging_utils import log_event
+from ragonometrics.manifest import build_index_version, build_run_manifest, write_index_version_sidecar, write_run_manifest
+from ragonometrics.logging_utils import log_event
 
 
 def normalize(v: np.ndarray) -> np.ndarray:
@@ -280,3 +280,4 @@ if __name__ == "__main__":
         pdfs = pdfs[: args.limit]
 
     build_index(settings, pdfs, index_path=Path(args.index_path), meta_db_url=args.meta_db_url)
+

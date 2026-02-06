@@ -65,7 +65,7 @@ def test_hybrid_search_creates_hits(tmp_path, monkeypatch):
     import importlib.util
     from pathlib import Path
 
-    spec = importlib.util.spec_from_file_location("src.retriever", Path("src/retriever.py").resolve())
+    spec = importlib.util.spec_from_file_location("ragonometrics.retriever", Path("ragonometrics/retriever.py").resolve())
     retriever = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(retriever)
 

@@ -7,18 +7,18 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from ragonomics.benchmark import bench_papers
-from ragonomics.indexer import build_index
-from ragonomics.main import (
+from ragonometrics.benchmark import bench_papers
+from ragonometrics.indexer import build_index
+from ragonometrics.main import (
     embed_texts,
     load_papers,
     load_settings,
     prepare_chunks_for_paper,
     top_k_context,
 )
-from ragonomics.pipeline import call_openai
-from ragonomics.prompts import RESEARCHER_QA_PROMPT
-from ragonomics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.pipeline import call_openai
+from ragonometrics.prompts import RESEARCHER_QA_PROMPT
+from ragonometrics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
 
 
 def cmd_index(args: argparse.Namespace) -> int:
@@ -143,7 +143,7 @@ def build_parser() -> argparse.ArgumentParser:
     Returns:
         argparse.ArgumentParser: Configured parser.
     """
-    p = argparse.ArgumentParser(prog="ragonomics")
+    p = argparse.ArgumentParser(prog="ragonometrics")
     sub = p.add_subparsers(dest="cmd", required=True)
 
     s = sub.add_parser("index", help="Build FAISS index from PDFs")
@@ -175,7 +175,7 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> int:
-    """CLI entrypoint for ragonomics.
+    """CLI entrypoint for ragonometrics.
 
     Returns:
         int: Exit code.
@@ -187,3 +187,4 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

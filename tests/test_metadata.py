@@ -9,7 +9,7 @@ def _load_mod(path: str, name: str):
     return mod
 
 
-metadata = _load_mod("src/metadata.py", "src.metadata")
+metadata = _load_mod("ragonometrics/metadata.py", "ragonometrics.metadata")
 
 
 def test_pipeline_run_and_shard_publish():

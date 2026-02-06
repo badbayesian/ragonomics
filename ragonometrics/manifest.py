@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
-from ragonomics.config import PROJECT_ROOT
-from ragonomics.main import Settings
+from ragonometrics.config import PROJECT_ROOT
+from ragonometrics.main import Settings
 
 
 def get_git_sha(repo_root: Path = PROJECT_ROOT) -> Optional[str]:
@@ -85,3 +85,4 @@ def write_index_version_sidecar(shard_path: Path, payload: dict) -> Path:
     sidecar = shard_path.with_suffix(".index.version.json")
     sidecar.write_text(json.dumps(payload, indent=2), encoding="utf-8")
     return sidecar
+

@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 
-from ragonomics.io_loaders import chunk_pages
-from ragonomics.main import expand_queries, Settings
+from ragonometrics.io_loaders import chunk_pages
+from ragonometrics.main import expand_queries, Settings
 
 
 def test_section_aware_chunking_adds_section(monkeypatch):
@@ -39,3 +39,4 @@ def test_expand_queries_default(monkeypatch):
 
     out = expand_queries("test query", DummyClient(), settings)
     assert out == ["test query"]
+

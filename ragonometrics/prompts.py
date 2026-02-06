@@ -1,4 +1,4 @@
-"""Centralized prompt strings for Ragonomics."""
+"""Centralized prompt strings for Ragonometrics."""
 
 MAIN_SUMMARY_PROMPT = (
     "Summarize the economics paper for a researcher using only the provided context. "
@@ -52,3 +52,4 @@ RERANK_PROMPT = (
     "return the IDs ordered by relevance (most relevant first). "
     "Return only a flat list of IDs, one per line."
 )
+

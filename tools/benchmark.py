@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from ragonomics.benchmark import benchmark_chunking, benchmark_indexing
-from ragonomics.main import load_settings
+from ragonometrics.benchmark import benchmark_chunking, benchmark_indexing
+from ragonometrics.main import load_settings
 
 
 def main() -> None:
@@ -29,3 +29,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

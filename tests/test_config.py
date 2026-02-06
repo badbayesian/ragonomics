@@ -1,9 +1,9 @@
 import os
 from pathlib import Path
 
-from ragonomics.config import build_effective_config, hash_config_dict, load_config
-from ragonomics import main as main_mod
-from ragonomics.main import load_settings
+from ragonometrics.config import build_effective_config, hash_config_dict, load_config
+from ragonometrics import main as main_mod
+from ragonometrics.main import load_settings
 
 
 def test_load_settings_from_config_and_env(tmp_path, monkeypatch):
@@ -42,3 +42,4 @@ def test_config_hash_stable(tmp_path):
     h1 = hash_config_dict(effective)
     h2 = hash_config_dict(effective)
     assert h1 == h2
+

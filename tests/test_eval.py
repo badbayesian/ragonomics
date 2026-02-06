@@ -1,4 +1,4 @@
-from ragonomics.eval import (
+from ragonometrics.eval import (
     answer_has_citation,
     evaluate_answers,
     evaluate_retrieval,
@@ -28,3 +28,4 @@ def test_answer_metrics():
     metrics = evaluate_answers([ans, "No citation here"])
     assert metrics["citation_coverage"] == 0.5
     assert metrics["hallucination_rate_proxy"] == 0.5
+

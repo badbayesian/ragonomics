@@ -17,13 +17,12 @@ except Exception:
     openai.OpenAI = DummyOpenAI
     sys.modules["openai"] = openai
 
-# Ensure src/ is importable for package imports
+# Ensure repo root is importable for package imports
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SRC_DIR = REPO_ROOT / "src"
-sys.path.insert(0, str(SRC_DIR))
+sys.path.insert(0, str(REPO_ROOT))
 
-from ragonomics.main import Settings, top_k_context
-from ragonomics.io_loaders import chunk_words, trim_words
+from ragonometrics.main import Settings, top_k_context
+from ragonometrics.io_loaders import chunk_words, trim_words
 
 
 def test_trim_words_truncates():
@@ -88,3 +87,4 @@ def test_top_k_context_selects_top_chunks():
     # should pick chunk_a (closest) and chunk_c (next closest)
     assert "chunk_a" in ctx
     assert "chunk_c" in ctx
+

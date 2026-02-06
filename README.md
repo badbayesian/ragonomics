@@ -1,9 +1,9 @@
-Ragonomics - RAG pipeline for economics papers
+Ragonometrics - RAG pipeline for economics papers
 ============================================
 
 Overview
 --------
-Ragonomics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes with FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. DOI metadata can be fetched from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
+Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes with FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. DOI metadata can be fetched from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
 
 Quick Start
 -----------
@@ -26,7 +26,7 @@ $env:OPENAI_API_KEY = "sk-..."
 5. Run the summarizer.
 
 ```bash
-python -m ragonomics.main
+python -m ragonometrics.main
 ```
 
 Console Entrypoints
@@ -34,10 +34,10 @@ Console Entrypoints
 After installation, use:
 
 ```bash
-ragonomics index --papers-dir papers/ --index-path vectors.index --meta-db-url "postgres://user:pass@localhost:5432/ragonomics"
-ragonomics query --paper papers/example.pdf --question "What is the research question?" --model gpt-5-nano
-ragonomics ui
-ragonomics benchmark --papers-dir papers/ --out bench/benchmark.csv --limit 5
+ragonometrics index --papers-dir papers/ --index-path vectors.index --meta-db-url "postgres://user:pass@localhost:5432/ragonometrics"
+ragonometrics query --paper papers/example.pdf --question "What is the research question?" --model gpt-5-nano
+ragonometrics ui
+ragonometrics benchmark --papers-dir papers/ --out bench/benchmark.csv --limit 5
 ```
 
 Streamlit App
@@ -45,7 +45,7 @@ Streamlit App
 Run the local UI:
 
 ```bash
-streamlit run src/streamlit_app.py
+streamlit run ragonometrics/streamlit_app.py
 ```
 
 Notes:
@@ -71,16 +71,16 @@ Configuration (Env Vars)
 
 Components and Files
 --------------------
-- Prompts: `src/prompts.py`.
-- IO + preprocessing: `src/io_loaders.py`.
-- Summarizer CLI: `src/main.py`.
-- Pipeline tools (chunk summaries, citations, metadata): `src/pipeline.py`.
-- Indexing: `src/indexer.py` (FAISS + Postgres metadata).
-- Retrieval: `src/retriever.py` (hybrid BM25 + FAISS).
-- Streamlit UI: `src/streamlit_app.py`.
-- Queue worker: `src/rq_queue.py` (Redis + RQ).
-- Crossref cache: `src/crossref_cache.py` (Postgres cache).
-- Benchmarks: `src/benchmark.py` and wrapper `tools/benchmark.py`.
+- Prompts: `ragonometrics/prompts.py`.
+- IO + preprocessing: `ragonometrics/io_loaders.py`.
+- Summarizer CLI: `ragonometrics/main.py`.
+- Pipeline tools (chunk summaries, citations, metadata): `ragonometrics/pipeline.py`.
+- Indexing: `ragonometrics/indexer.py` (FAISS + Postgres metadata).
+- Retrieval: `ragonometrics/retriever.py` (hybrid BM25 + FAISS).
+- Streamlit UI: `ragonometrics/streamlit_app.py`.
+- Queue worker: `ragonometrics/rq_queue.py` (Redis + RQ).
+- Crossref cache: `ragonometrics/crossref_cache.py` (Postgres cache).
+- Benchmarks: `ragonometrics/benchmark.py` and wrapper `tools/benchmark.py`.
 
 Indexing and Retrieval
 ----------------------
@@ -101,7 +101,7 @@ Queueing
 Benchmarks
 ----------
 - `tools/benchmark.py` runs indexing and chunking benchmarks against sample PDFs.
-- `src/benchmark.py` supports retrieval benchmarks and OCR forcing.
+- `ragonometrics/benchmark.py` supports retrieval benchmarks and OCR forcing.
 
 Troubleshooting
 ---------------
@@ -139,3 +139,4 @@ flowchart LR
 Architecture
 ------------
 See `docs/architecture.md` for design rationale, scaling notes, and operational guidance.
+

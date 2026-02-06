@@ -8,7 +8,7 @@ from typing import Optional
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_CACHE_PATH = PROJECT_ROOT / "ragonomics_query_cache.sqlite"
+DEFAULT_CACHE_PATH = PROJECT_ROOT / "ragonometrics_query_cache.sqlite"
 
 
 def _connect(db_path: Path) -> sqlite3.Connection:
@@ -79,3 +79,4 @@ def set_cached_answer(
         conn.commit()
     finally:
         conn.close()
+

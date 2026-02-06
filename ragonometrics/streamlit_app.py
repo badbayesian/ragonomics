@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from datetime import datetime, timedelta, timezone
+from uuid import uuid4
 import html
 import re
 from typing import List, Optional
@@ -9,7 +11,7 @@ from typing import List, Optional
 import streamlit as st
 from openai import OpenAI
 
-from ragonomics.main import (
+from ragonometrics.main import (
     Settings,
     Paper,
     build_and_store_doi_network,
@@ -20,9 +22,10 @@ from ragonomics.main import (
     prepare_chunks_for_paper,
     top_k_context,
 )
-from ragonomics.pipeline import call_openai
-from ragonomics.prompts import RESEARCHER_QA_PROMPT
-from ragonomics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.pipeline import call_openai
+from ragonometrics.prompts import RESEARCHER_QA_PROMPT
+from ragonometrics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.token_usage import DEFAULT_USAGE_DB, get_recent_usage, get_usage_by_model, get_usage_summary
 
 import networkx as nx
 import plotly.graph_objects as go
@@ -40,7 +43,7 @@ except Exception:
     ImageDraw = None
 
 
-st.set_page_config(page_title="Ragonomics Chat", layout="wide")
+st.set_page_config(page_title="Ragonometrics Chat", layout="wide")
 
 
 def list_papers(papers_dir: Path) -> List[Path]:
@@ -204,7 +207,7 @@ def render_citation_snapshot(path: Path, citation: dict, idx: int, query: str) -
 
 def main():
     """Run the Streamlit app."""
-    st.title("Ragonomics — Paper Chatbot")
+    st.title("Ragonometrics — Paper Chatbot")
 
     settings = load_settings()
     client = OpenAI()
@@ -244,20 +247,57 @@ def main():
 
     if "history" not in st.session_state:
         st.session_state.history = []
+    if "session_id" not in st.session_state:
+        st.session_state.session_id = uuid4().hex
+        st.session_state.session_started_at = datetime.now(timezone.utc).isoformat()
+    if "last_request_id" not in st.session_state:
+        st.session_state.last_request_id = None
 
-    tab_chat, tab_doi = st.tabs(["Chat", "DOI Network"])
+    tab_chat, tab_doi, tab_usage = st.tabs(["Chat", "DOI Network", "Usage"])
 
     with tab_chat:
         query = st.text_input("Ask a question about this paper", key="query_input")
 
-        if st.button("Send") and query:
+        send_col, vary_col = st.columns([1, 1])
+        with send_col:
+            send_clicked = st.button("Send")
+        with vary_col:
+            vary_clicked = st.button(
+                "Try Variation",
+                help="Rerun with higher temperature for a slightly different answer.",
+            )
+
+        if (send_clicked or vary_clicked) and query:
+            request_id = uuid4().hex
+            st.session_state.last_request_id = request_id
             with st.spinner("Retrieving context and querying model..."):
                 # compute top-k context using the same cosine-based retriever
                 # context will include provenance annotations like (page X words Y-Z)
-                context = top_k_context(chunks, chunk_embeddings, query=query, client=client, settings=settings)
+                context = top_k_context(
+                    chunks,
+                    chunk_embeddings,
+                    query=query,
+                    client=client,
+                    settings=settings,
+                    session_id=st.session_state.session_id,
+                    request_id=request_id,
+                )
 
-                cache_key = make_cache_key(query, str(paper.path), selected_model, context)
-                cached = get_cached_answer(DEFAULT_CACHE_PATH, cache_key)
+                temperature = None
+                cache_allowed = True
+                if vary_clicked:
+                    cache_allowed = False
+                    try:
+                        temperature = float(os.getenv("RAG_VARIATION_TEMPERATURE", "0.7"))
+                    except Exception:
+                        temperature = 0.7
+
+                cached = None
+                cache_key = None
+                if cache_allowed:
+                    cache_key = make_cache_key(query, str(paper.path), selected_model, context)
+                    cached = get_cached_answer(DEFAULT_CACHE_PATH, cache_key)
+
                 if cached is not None:
                     answer = cached
                 else:
@@ -267,16 +307,21 @@ def main():
                         instructions=RESEARCHER_QA_PROMPT,
                         user_input=f"Context:\n{context}\n\nQuestion: {query}",
                         max_output_tokens=None,
+                        temperature=temperature,
+                        usage_context="answer",
+                        session_id=st.session_state.session_id,
+                        request_id=request_id,
                     ).strip()
-                    set_cached_answer(
-                        DEFAULT_CACHE_PATH,
-                        cache_key=cache_key,
-                        query=query,
-                        paper_path=str(paper.path),
-                        model=selected_model,
-                        context=context,
-                        answer=answer,
-                    )
+                    if cache_allowed and cache_key is not None:
+                        set_cached_answer(
+                            DEFAULT_CACHE_PATH,
+                            cache_key=cache_key,
+                            query=query,
+                            paper_path=str(paper.path),
+                            model=selected_model,
+                            context=context,
+                            answer=answer,
+                        )
 
                 citations = parse_context_chunks(context)
                 st.session_state.history.append(
@@ -397,6 +442,47 @@ def main():
                     network = build_doi_network_from_paper(paper)
             visualize_network(network)
 
+    with tab_usage:
+        st.subheader("Token Usage")
+        st.caption("Aggregates are computed from the local SQLite usage table.")
+
+        now = datetime.now(timezone.utc)
+        last_24h = (now - timedelta(hours=24)).isoformat()
+
+        total = get_usage_summary(db_path=DEFAULT_USAGE_DB)
+        session_total = get_usage_summary(db_path=DEFAULT_USAGE_DB, session_id=st.session_state.session_id)
+        recent_total = get_usage_summary(db_path=DEFAULT_USAGE_DB, since=last_24h)
+
+        metrics_cols = st.columns(4)
+        metrics_cols[0].metric("Total Tokens (All Time)", f"{total.total_tokens}")
+        metrics_cols[1].metric("Total Tokens (Session)", f"{session_total.total_tokens}")
+        metrics_cols[2].metric("Total Tokens (24h)", f"{recent_total.total_tokens}")
+        metrics_cols[3].metric("Calls (All Time)", f"{total.calls}")
+
+        if st.session_state.last_request_id:
+            last_query = get_usage_summary(
+                db_path=DEFAULT_USAGE_DB,
+                request_id=st.session_state.last_request_id,
+            )
+            st.metric("Last Query Tokens", f"{last_query.total_tokens}")
+
+        st.markdown("---")
+        st.subheader("Usage By Model")
+        by_model = get_usage_by_model(db_path=DEFAULT_USAGE_DB)
+        if by_model:
+            st.dataframe(by_model, use_container_width=True)
+        else:
+            st.info("No usage records yet.")
+
+        st.markdown("---")
+        st.subheader("Recent Usage Records")
+        recent = get_recent_usage(db_path=DEFAULT_USAGE_DB, limit=200)
+        if recent:
+            st.dataframe(recent, use_container_width=True)
+        else:
+            st.info("No usage records yet.")
+
 
 if __name__ == "__main__":
     main()
+

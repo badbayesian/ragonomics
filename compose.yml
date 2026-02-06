@@ -1,7 +1,7 @@
 services:
   streamlit:
     build: .
-    command: streamlit run src/streamlit_app.py --server.port=8501 --server.address=0.0.0.0
+    command: streamlit run ragonometrics/streamlit_app.py --server.port=8501 --server.address=0.0.0.0
     ports:
       - "8501:8501"
     environment:
@@ -14,7 +14,7 @@ services:
 
   worker:
     build: .
-    command: python -m src.main
+    command: python -m ragonometrics.main
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PAPERS_DIR=/app/papers
@@ -26,7 +26,7 @@ services:
   doi-worker:
     build: .
     # Example one-off command; override per your workflow. It runs a small DOI network build.
-    command: ["python", "-c", "from src.main import load_papers, build_and_store_doi_network; import os; papers=load_papers(['papers/example.pdf']); print(build_and_store_doi_network(papers[0], db_url=os.environ.get('DATABASE_URL')))" ]
+    command: ["python", "-c", "from ragonometrics.main import load_papers, build_and_store_doi_network; import os; papers=load_papers(['papers/example.pdf']); print(build_and_store_doi_network(papers[0], db_url=os.environ.get('DATABASE_URL')))" ]
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PAPERS_DIR=/app/papers
@@ -39,7 +39,7 @@ services:
 
   indexer:
     build: .
-    command: python -m src.indexer --index-path vectors.index --meta-db-url $${DATABASE_URL}
+    command: python -m ragonometrics.indexer --index-path vectors.index --meta-db-url $${DATABASE_URL}
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - PAPERS_DIR=/app/papers
@@ -71,7 +71,7 @@ services:
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
-      - POSTGRES_DB=ragonomics
+      - POSTGRES_DB=ragonometrics
     ports:
       - "5432:5432"
     volumes:
@@ -83,3 +83,4 @@ volumes:
     driver: local
   pgdata:
     driver: local
+

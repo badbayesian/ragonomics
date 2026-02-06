@@ -5,8 +5,8 @@ from redis import Redis
 from pathlib import Path
 from typing import List
 
-from ragonomics.indexer import build_index
-from ragonomics.main import load_settings
+from ragonometrics.indexer import build_index
+from ragonometrics.main import load_settings
 
 
 def enqueue_index(papers: List[Path], redis_url: str = "redis://redis:6379"):
@@ -36,3 +36,4 @@ if __name__ == "__main__":
     print("Enqueuing indexing job for", len(pdfs), "papers")
     job = enqueue_index(pdfs)
     print("Enqueued job:", job.id)
+

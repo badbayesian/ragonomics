@@ -7,8 +7,8 @@ from typing import List, Optional
 
 from openai import OpenAI
 
-from ragonomics.indexer import build_index
-from ragonomics.main import (
+from ragonometrics.indexer import build_index
+from ragonometrics.main import (
     Paper,
     Settings,
     embed_texts,
@@ -212,3 +212,4 @@ if __name__ == "__main__":
 
     papers_dir = args.papers_dir or load_settings().papers_dir
     bench_papers(Path(papers_dir), Path(args.out), limit=args.limit, use_openai=args.use_openai, db_url=args.db_url, force_ocr=args.force_ocr)
+

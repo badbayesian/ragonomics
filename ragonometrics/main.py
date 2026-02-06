@@ -16,14 +16,14 @@ from typing import Optional
 
 from openai import OpenAI
 
-from ragonomics.config import DEFAULT_CONFIG_PATH, build_effective_config, hash_config_dict, load_config
-from ragonomics.io_loaders import (
+from ragonometrics.config import DEFAULT_CONFIG_PATH, build_effective_config, hash_config_dict, load_config
+from ragonometrics.io_loaders import (
     chunk_pages,
     normalize_text,
     run_pdftotext_pages,
 )
-from ragonomics.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
-from ragonomics.pipeline import call_openai
+from ragonometrics.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
+from ragonometrics.pipeline import call_openai
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -230,7 +230,7 @@ def fetch_references_from_crossref(doi: str, timeout: int = 10, cache_db_url: st
         data = None
         for attempt in range(3):
             try:
-                resp = requests.get(url, timeout=timeout, headers={"User-Agent": "Ragonomics/0.1 (mailto:example@example.com)"})
+                resp = requests.get(url, timeout=timeout, headers={"User-Agent": "Ragonometrics/0.1 (mailto:example@example.com)"})
                 resp.raise_for_status()
                 data = resp.json()
                 break
@@ -240,7 +240,7 @@ def fetch_references_from_crossref(doi: str, timeout: int = 10, cache_db_url: st
                     db_url = os.environ.get("DATABASE_URL")
                     if db_url:
                         try:
-                            from ragonomics import metadata
+                            from ragonometrics import metadata
 
                             conn = psycopg2.connect(db_url)
                             metadata.record_failure(conn, "crossref", str(exc), {"doi": doi})
@@ -380,7 +380,15 @@ def build_and_store_doi_network(paper: Paper, db_url: Optional[str] = None, max_
     return network
 
 
-def embed_texts(client: OpenAI, texts: List[str], model: str, batch_size: int) -> List[List[float]]:
+def embed_texts(
+    client: OpenAI,
+    texts: List[str],
+    model: str,
+    batch_size: int,
+    *,
+    session_id: str | None = None,
+    request_id: str | None = None,
+) -> List[List[float]]:
     """Embed a list of texts in batches.
 
     Args:
@@ -396,6 +404,33 @@ def embed_texts(client: OpenAI, texts: List[str], model: str, batch_size: int) -
     for i in range(0, len(texts), batch_size):
         batch = texts[i : i + batch_size]
         resp = client.embeddings.create(model=model, input=batch)
+        try:
+            from ragonometrics.token_usage import record_usage
+
+            usage = getattr(resp, "usage", None)
+            input_tokens = output_tokens = total_tokens = 0
+            if usage is not None:
+                if isinstance(usage, dict):
+                    input_tokens = int(usage.get("input_tokens") or 0)
+                    output_tokens = int(usage.get("output_tokens") or 0)
+                    total_tokens = int(usage.get("total_tokens") or 0)
+                else:
+                    input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+                    output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+                    total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+            if total_tokens == 0:
+                total_tokens = input_tokens + output_tokens
+            record_usage(
+                model=model,
+                operation="embeddings",
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                total_tokens=total_tokens,
+                session_id=session_id,
+                request_id=request_id,
+            )
+        except Exception:
+            pass
         embeddings.extend([item.embedding for item in resp.data])
     return embeddings
 
@@ -422,7 +457,14 @@ def cosine(a: List[float], b: List[float]) -> float:
     return dot / math.sqrt(norm_a * norm_b)
 
 
-def expand_queries(query: str, client: OpenAI, settings: Settings) -> List[str]:
+def expand_queries(
+    query: str,
+    client: OpenAI,
+    settings: Settings,
+    *,
+    session_id: str | None = None,
+    request_id: str | None = None,
+) -> List[str]:
     """Optionally expand a query using a lightweight LLM prompt."""
     mode = os.environ.get("QUERY_EXPANSION", "").strip().lower()
     if not mode:
@@ -435,6 +477,9 @@ def expand_queries(query: str, client: OpenAI, settings: Settings) -> List[str]:
             instructions=QUERY_EXPANSION_PROMPT,
             user_input=query,
             max_output_tokens=200,
+            usage_context="query_expansion",
+            session_id=session_id,
+            request_id=request_id,
         )
     except Exception:
         return [query]
@@ -456,6 +501,8 @@ def rerank_with_llm(
     items: List[Dict[str, str]],
     client: OpenAI,
     settings: Settings,
+    session_id: str | None = None,
+    request_id: str | None = None,
 ) -> List[str] | None:
     """Use an LLM to rerank items by relevance.
 
@@ -474,6 +521,9 @@ def rerank_with_llm(
             instructions=RERANK_PROMPT,
             user_input=f"Query:\n{query}\n\nChunks:\n{payload}",
             max_output_tokens=300,
+            usage_context="rerank",
+            session_id=session_id,
+            request_id=request_id,
         )
     except Exception:
         return None
@@ -491,6 +541,9 @@ def top_k_context(
     query: str,
     client: OpenAI,
     settings: Settings,
+    *,
+    session_id: str | None = None,
+    request_id: str | None = None,
 ) -> str:
     """Select top-k relevant chunk text for a query.
 
@@ -507,7 +560,7 @@ def top_k_context(
     Returns:
         str: Concatenated context string.
     """
-    queries = expand_queries(query, client, settings)
+    queries = expand_queries(query, client, settings, session_id=session_id, request_id=request_id)
 
     # If a Postgres-backed retriever is available, prefer hybrid retrieval
     db_url = os.environ.get("DATABASE_URL")
@@ -550,7 +603,14 @@ def top_k_context(
                             continue
                         _, text, page, start_word, end_word = r
                         candidates.append({"id": str(vid), "text": text[:800]})
-                    order = rerank_with_llm(query=query, items=candidates, client=client, settings=settings)
+                    order = rerank_with_llm(
+                        query=query,
+                        items=candidates,
+                        client=client,
+                        settings=settings,
+                        session_id=session_id,
+                        request_id=request_id,
+                    )
                     if order:
                         order_map = {oid: i for i, oid in enumerate(order)}
                         hits = sorted(hits, key=lambda x: order_map.get(str(x[0]), 999999))
@@ -566,7 +626,35 @@ def top_k_context(
                 return "\n\n".join(out_parts)
 
     # fallback: support chunks as list of dicts with provenance metadata or simple strings
-    query_emb_resp = client.embeddings.create(model=settings.embedding_model, input=queries).data
+    query_emb_response = client.embeddings.create(model=settings.embedding_model, input=queries)
+    try:
+        from ragonometrics.token_usage import record_usage
+
+        usage = getattr(query_emb_response, "usage", None)
+        input_tokens = output_tokens = total_tokens = 0
+        if usage is not None:
+            if isinstance(usage, dict):
+                input_tokens = int(usage.get("input_tokens") or 0)
+                output_tokens = int(usage.get("output_tokens") or 0)
+                total_tokens = int(usage.get("total_tokens") or 0)
+            else:
+                input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
+                output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
+                total_tokens = int(getattr(usage, "total_tokens", 0) or 0)
+        if total_tokens == 0:
+            total_tokens = input_tokens + output_tokens
+        record_usage(
+            model=settings.embedding_model,
+            operation="query_embedding",
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            session_id=session_id,
+            request_id=request_id,
+        )
+    except Exception:
+        pass
+    query_emb_resp = query_emb_response.data
     query_embeddings = [item.embedding for item in query_emb_resp]
     scored = [(idx, max(cosine(qemb, emb) for qemb in query_embeddings)) for idx, emb in enumerate(chunk_embeddings)]
     scored.sort(key=lambda x: x[1], reverse=True)
@@ -580,7 +668,14 @@ def top_k_context(
             chunk = chunks[idx]
             text = chunk["text"] if isinstance(chunk, dict) else str(chunk)
             candidates.append({"id": str(idx), "text": text[:800]})
-        order = rerank_with_llm(query=query, items=candidates, client=client, settings=settings)
+        order = rerank_with_llm(
+            query=query,
+            items=candidates,
+            client=client,
+            settings=settings,
+            session_id=session_id,
+            request_id=request_id,
+        )
         if order:
             order_map = {oid: i for i, oid in enumerate(order)}
             top = sorted(top, key=lambda x: order_map.get(str(x), 999999))
@@ -705,7 +800,6 @@ def main() -> None:
     selected = pdf_files[: settings.max_papers]
     papers = load_papers(selected)
 
-    print("Hello world RAG summary for economics papers")
     print(f"Using {len(papers)} paper(s) from {settings.papers_dir}")
 
     for paper in papers:
@@ -717,3 +811,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+

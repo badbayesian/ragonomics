@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ragonomics.manifest import build_run_manifest, write_run_manifest
-from ragonomics.main import Settings
+from ragonometrics.manifest import build_run_manifest, write_run_manifest
+from ragonometrics.main import Settings
 
 
 def test_write_run_manifest(tmp_path):
@@ -37,3 +37,4 @@ def test_write_run_manifest(tmp_path):
     assert '"pipeline_run_id": 42' in data
     assert '"embedding_model": "emb"' in data
     assert '"config_hash": "abc123"' in data
+
