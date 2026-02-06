@@ -129,6 +129,14 @@ Reproducibility
   - corpus fingerprint, embedding dim + hashes, chunking scheme, timestamps, and artifact paths.
   - deterministic paper list with stable `doc_id`s and per-chunk `chunk_id` + `chunk_hash` entries for diffable runs.
 
+Tradeoffs
+---------
+- **Local-only (FAISS + SQLite) vs Postgres-backed**: Local runs are fast and low-friction but limit hybrid retrieval, shared indexing, and team access. Postgres adds infra overhead but enables multi-user metadata, hybrid retrieval, and durable indexing.
+- **Determinism vs throughput**: Stable ordering, chunk hashes, and manifest recording improve auditability but add compute and I/O overhead during ingestion and indexing.
+- **Agentic depth vs cost**: Agentic workflows improve coverage and synthesis quality but increase latency and token usage; structured questions are cheaper and more predictable.
+- **Citations and provenance vs speed**: Citation extraction and page-level provenance improve trustworthiness but add extra parsing and retrieval work.
+- **Hybrid retrieval vs simplicity**: BM25 + reranking can improve relevance but introduces more tuning surface and failure modes compared to pure vector search.
+
 Retrieval Quality Controls
 --------------------------
 - Optional query expansion and LLM reranking to improve relevance.

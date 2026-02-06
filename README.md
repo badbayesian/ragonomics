@@ -27,7 +27,7 @@ python -m pip install -e .
 python -m ragonometrics.core.main
 ```
 
-Docs (GitHub)
+Docs
 -------------
 Docs root: [docs/](https://github.com/badbayesian/ragonometrics/tree/main/docs)
 - [Architecture](https://github.com/badbayesian/ragonometrics/blob/main/docs/architecture/architecture.md): System design, tradeoffs, and reproducibility.

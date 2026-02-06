@@ -45,8 +45,15 @@ Example input path: [`papers/`](https://github.com/badbayesian/ragonometrics/tre
 Operational Notes
 -----------------
 - For long-running workflows, keep state DB on durable storage.
-- Use Postgres (`DATABASE_URL`) for metadata + hybrid retrieval.
 - Use [`reports/`](https://github.com/badbayesian/ragonometrics/tree/main/reports) for archived summaries or push to object storage.
-- Enable the agentic step with `WORKFLOW_AGENTIC=1` or `--agentic` on the CLI.
-- Provide `WORKFLOW_QUESTION` or `--question` to control the agentic objective.
-- Enable citation enrichment with `WORKFLOW_AGENTIC_CITATIONS=1` or `--agentic-citations`.
+
+Key Environment Variables
+-------------------------
+| Name | Description | Default | Type | Notes |
+| --- | --- | --- | --- | --- |
+| `DATABASE_URL` | Postgres URL for metadata + hybrid retrieval. | empty | string (URL) | Required for indexing/hybrid retrieval. |
+| `WORKFLOW_AGENTIC` | Enable agentic step. | `0` | bool | Use `1` or `--agentic`. |
+| `WORKFLOW_QUESTION` | Main agentic question. | `Summarize the paper's research question, methods, and key findings.` | string | CLI override `--question`. |
+| `WORKFLOW_AGENTIC_CITATIONS` | Enable citation enrichment. | `0` | bool | Use `1` or `--agentic-citations`. |
+
+See [Configuration](https://github.com/badbayesian/ragonometrics/blob/main/docs/configuration/configuration.md) for the full list.

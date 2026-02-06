@@ -105,15 +105,20 @@ Failure Handling
 
 Key Configuration Flags
 -----------------------
-- `WORKFLOW_AGENTIC=1` to enable agentic step
-- `WORKFLOW_QUESTION` sets the main question
-- `WORKFLOW_AGENTIC_MODEL` model override
-- `WORKFLOW_AGENTIC_CITATIONS=1` to include citations context
-- `WORKFLOW_REPORT_QUESTIONS=0` to skip structured report questions
-- `WORKFLOW_REPORT_QUESTIONS_SET=structured|agentic|both|none`
-- `WORKFLOW_REPORT_QUESTION_WORKERS=8` controls concurrency
-- `DATABASE_URL` enables indexing + hybrid retrieval
-- `FRED_API_KEY`, `ECON_SERIES_IDS` enable econ step
+| Name | Description | Default | Type | Notes |
+| --- | --- | --- | --- | --- |
+| `WORKFLOW_AGENTIC` | Enable agentic step. | `0` | bool | Use `1` to enable. |
+| `WORKFLOW_QUESTION` | Main workflow question. | `Summarize the paper's research question, methods, and key findings.` | string | Uses the built-in summary question when unset. |
+| `WORKFLOW_AGENTIC_MODEL` | Model override for agentic step. | `CHAT_MODEL` | string | Falls back to chat model. |
+| `WORKFLOW_AGENTIC_CITATIONS` | Enable citation extraction. | `0` | bool | Use `1` to enable. |
+| `WORKFLOW_REPORT_QUESTIONS` | Enable structured report questions. | `1` | bool | Use `0` to disable. |
+| `WORKFLOW_REPORT_QUESTIONS_SET` | Report question set to run. | `structured` | enum | `structured|agentic|both|none`. |
+| `WORKFLOW_REPORT_QUESTION_WORKERS` | Concurrency for report questions. | `8` | int | |
+| `DATABASE_URL` | Postgres URL for indexing + hybrid retrieval. | empty | string (URL) | |
+| `FRED_API_KEY` | FRED API key for econ step. | unset | string | Enables econ step. |
+| `ECON_SERIES_IDS` | FRED series IDs. | empty | CSV string | Defaults to `GDPC1,FEDFUNDS` when econ step enabled with no list. |
+
+See [Configuration](https://github.com/badbayesian/ragonometrics/blob/main/docs/configuration/configuration.md) for the full list.
 
 Performance Tips
 ----------------
@@ -126,4 +131,3 @@ Code Locations
 - Orchestration: [`ragonometrics/pipeline/workflow.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/workflow.py)
 - State persistence: [`ragonometrics/pipeline/state.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/state.py)
 - Report schema: [`ragonometrics/pipeline/workflow.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/workflow.py) (agentic report section)
-
