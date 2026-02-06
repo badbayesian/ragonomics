@@ -109,7 +109,7 @@ def cmd_ui(args: argparse.Namespace) -> int:
     Returns:
         int: Exit code (0 on success).
     """
-    app_path = Path(__file__).resolve().parent / "streamlit_app.py"
+    app_path = Path(__file__).resolve().parents[1] / "ui" / "streamlit_app.py"
     try:
         return subprocess.call([sys.executable, "-m", "streamlit", "run", str(app_path)])
     except FileNotFoundError:

@@ -46,8 +46,5 @@ ragonometrics = "ragonometrics.cli.entrypoints:main"
 ragonometrics-cli = "ragonometrics.cli.cli:main"
 
 [tool.setuptools]
-packages = { find = { where = ["ragonometrics"] } }
-
-[tool.setuptools.package-dir]
-"" = "ragonometrics"
+packages = { find = { where = ["."], include = ["ragonometrics*"] } }
 

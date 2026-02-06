@@ -13,7 +13,7 @@ import re
 from typing import List, Optional
 
 import streamlit as st
-from openai import OpenAI
+from openai import OpenAI, BadRequestError
 
 from ragonometrics.core.main import (
     Settings,
@@ -275,10 +275,10 @@ def main():
     with tab_chat:
         query = st.text_input("Ask a question about this paper", key="query_input")
 
-        send_col, vary_col = st.columns([1, 1])
-        with send_col:
+        button_cols = st.columns([1, 1, 8], gap="small")
+        with button_cols[0]:
             send_clicked = st.button("Send")
-        with vary_col:
+        with button_cols[1]:
             vary_clicked = st.button(
                 "Try Variation",
                 help="Rerun with higher temperature for a slightly different answer.",
@@ -316,17 +316,38 @@ def main():
                 if cached is not None:
                     answer = cached
                 else:
-                    answer = call_openai(
-                        client,
-                        model=selected_model,
-                        instructions=RESEARCHER_QA_PROMPT,
-                        user_input=f"Context:\n{context}\n\nQuestion: {query}",
-                        max_output_tokens=None,
-                        temperature=temperature,
-                        usage_context="answer",
-                        session_id=st.session_state.session_id,
-                        request_id=request_id,
-                    ).strip()
+                    try:
+                        answer = call_openai(
+                            client,
+                            model=selected_model,
+                            instructions=RESEARCHER_QA_PROMPT,
+                            user_input=f"Context:\n{context}\n\nQuestion: {query}",
+                            max_output_tokens=None,
+                            temperature=temperature,
+                            usage_context="answer",
+                            session_id=st.session_state.session_id,
+                            request_id=request_id,
+                        ).strip()
+                    except BadRequestError as exc:
+                        err = str(exc).lower()
+                        if temperature is not None and "temperature" in err and "unsupported" in err:
+                            st.warning(
+                                "The selected model does not support temperature. "
+                                "Retrying without variation."
+                            )
+                            answer = call_openai(
+                                client,
+                                model=selected_model,
+                                instructions=RESEARCHER_QA_PROMPT,
+                                user_input=f"Context:\n{context}\n\nQuestion: {query}",
+                                max_output_tokens=None,
+                                temperature=None,
+                                usage_context="answer",
+                                session_id=st.session_state.session_id,
+                                request_id=request_id,
+                            ).strip()
+                        else:
+                            raise
                     if cache_allowed and cache_key is not None:
                         set_cached_answer(
                             DEFAULT_CACHE_PATH,
@@ -471,7 +492,7 @@ def main():
                 yaxis=dict(showgrid=False, zeroline=False, showticklabels=False),
             )
 
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width="stretch")
 
         col1, col2 = st.columns([1, 3])
         with col1:
@@ -515,7 +536,7 @@ def main():
         st.subheader("Usage By Model")
         by_model = get_usage_by_model(db_path=DEFAULT_USAGE_DB)
         if by_model:
-            st.dataframe(by_model, use_container_width=True)
+            st.dataframe(by_model, width="stretch")
         else:
             st.info("No usage records yet.")
 
@@ -523,7 +544,7 @@ def main():
         st.subheader("Recent Usage Records")
         recent = get_recent_usage(db_path=DEFAULT_USAGE_DB, limit=200)
         if recent:
-            st.dataframe(recent, use_container_width=True)
+            st.dataframe(recent, width="stretch")
         else:
             st.info("No usage records yet.")
 
