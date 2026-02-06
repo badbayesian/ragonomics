@@ -803,6 +803,7 @@ def main() -> None:
     papers = load_papers(selected)
 
     print(f"Using {len(papers)} paper(s) from {settings.papers_dir}")
+    print("Summarizing papers...\n")
 
     for paper in papers:
         print("\n" + "=" * 80)

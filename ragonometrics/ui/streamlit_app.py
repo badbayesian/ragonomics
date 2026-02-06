@@ -274,15 +274,11 @@ def main():
 
     with tab_chat:
         query = st.text_input("Ask a question about this paper", key="query_input")
-
-        button_cols = st.columns([1, 1, 8], gap="small")
-        with button_cols[0]:
-            send_clicked = st.button("Send")
-        with button_cols[1]:
-            vary_clicked = st.button(
-                "Try Variation",
-                help="Rerun with higher temperature for a slightly different answer.",
-            )
+        send_clicked = st.button("Send")
+        vary_clicked = st.button(
+            "Try Variation",
+            help="Rerun with higher temperature for a slightly different answer.",
+        )
 
         if (send_clicked or vary_clicked) and query:
             request_id = uuid4().hex
