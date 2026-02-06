@@ -10,7 +10,7 @@ Key Components
 --------------
 - Config and prompts
   - `config.toml` (optional) is the primary configuration surface with env-var overrides.
-  - Centralized prompts live in `ragonometrics/prompts.py`.
+  - Centralized prompts live in `ragonometrics/core/prompts.py`.
 - PDF extraction and preprocessing
   - `pdftotext` + `pdfinfo` (Poppler) with OCR fallback.
   - Per-page extraction supports provenance (page + word offsets).
@@ -25,7 +25,7 @@ Key Components
   - Postgres metadata stores vectors, index shards, and index version rows.
   - Idempotent indexing based on a deterministic key (same corpus + params).
 - UI and CLI
-  - Streamlit UI (`ragonometrics/streamlit_app.py`) provides a Chat tab and DOI Network tab.
+  - Streamlit UI (`ragonometrics/ui/streamlit_app.py`) provides a Chat tab and DOI Network tab.
   - Console entrypoints: `ragonometrics index | query | ui | benchmark`.
 - Caching
   - Crossref responses cached in Postgres.
@@ -60,17 +60,17 @@ Operational Hardening
 
 Evaluation
 ----------
-- `ragonometrics/eval.py` provides retrieval metrics (recall@k, MRR) and answer proxies
+- `ragonometrics/eval/eval.py` provides retrieval metrics (recall@k, MRR) and answer proxies
   (citation coverage, hallucination proxy, self-consistency).
 - Golden-set format supports curated Q/A and expected citations.
 
 Queueing
 --------
-- Redis + RQ (`ragonometrics/rq_queue.py`) for async indexing jobs.
+- Redis + RQ (`ragonometrics/integrations/rq_queue.py`) for async indexing jobs.
 
 Benchmarks
 ----------
-- `ragonometrics/benchmark.py` and `tools/benchmark.py` measure indexing, chunking, and retrieval timing.
+- `ragonometrics/eval/benchmark.py` and `tools/benchmark.py` measure indexing, chunking, and retrieval timing.
 
 Entrypoints
 -----------

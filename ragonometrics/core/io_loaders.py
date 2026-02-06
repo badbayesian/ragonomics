@@ -1,3 +1,5 @@
+"""PDF/text extraction, normalization, and chunking utilities. Forms the ingestion stage of the pipeline and produces provenance-aware chunks."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

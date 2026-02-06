@@ -1,3 +1,5 @@
+"""Hybrid retrieval over Postgres metadata and FAISS shards (BM25 + embeddings). Used by top_k_context when DATABASE_URL is configured."""
+
 from __future__ import annotations
 
 from typing import List, Tuple, Dict

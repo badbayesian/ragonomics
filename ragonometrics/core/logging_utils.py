@@ -1,3 +1,5 @@
+"""Lightweight structured logging for pipeline events and runs."""
+
 from __future__ import annotations
 
 import json

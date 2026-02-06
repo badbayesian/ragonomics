@@ -42,12 +42,12 @@ ocr = [
 
 
 [project.scripts]
-ragonometrics = "ragonometrics.entrypoints:main"
-ragonometrics-cli = "ragonometrics.cli:main"
+ragonometrics = "ragonometrics.cli.entrypoints:main"
+ragonometrics-cli = "ragonometrics.cli.cli:main"
 
 [tool.setuptools]
-packages = ["ragonometrics"]
+packages = { find = { where = ["ragonometrics"] } }
 
 [tool.setuptools.package-dir]
-ragonometrics = "ragonometrics"
+"" = "ragonometrics"
 

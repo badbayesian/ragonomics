@@ -21,8 +21,8 @@ except Exception:
 REPO_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO_ROOT))
 
-from ragonometrics.main import Settings, top_k_context
-from ragonometrics.io_loaders import chunk_words, trim_words
+from ragonometrics.core.main import Settings, top_k_context
+from ragonometrics.core.io_loaders import chunk_words, trim_words
 
 
 def test_trim_words_truncates():

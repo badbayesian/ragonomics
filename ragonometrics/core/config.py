@@ -1,3 +1,5 @@
+"""Configuration loader and merger for Ragonometrics. Used by load_settings to build pipeline config from TOML and environment variables."""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,7 +14,7 @@ except ImportError:  # pragma: no cover - fallback for older Python
     import tomli as tomllib  # type: ignore
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DEFAULT_CONFIG_PATH = PROJECT_ROOT / "config.toml"
 
 

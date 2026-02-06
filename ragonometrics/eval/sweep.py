@@ -1,3 +1,5 @@
+"""Parameter sweep harness for benchmarking chunking and retrieval settings. Builds on benchmark utilities to explore pipeline tradeoffs."""
+
 from __future__ import annotations
 
 import itertools
@@ -59,7 +61,7 @@ if __name__ == "__main__":
     args = p.parse_args()
     pw = args.papers_dir
     if not pw:
-        from .main import load_settings
+        from ragonometrics.core.main import load_settings
 
         pw = load_settings().papers_dir
     sweep(pw, args.out_dir, chunk_words_vals=[200,300,350], chunk_overlap_vals=[30,50], bm25_vals=[0.0,0.5,1.0], limit=args.limit, use_openai=args.use_openai)

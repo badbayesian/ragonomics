@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from ragonometrics.manifest import build_run_manifest, write_run_manifest
-from ragonometrics.main import Settings
+from ragonometrics.indexing.manifest import build_run_manifest, write_run_manifest
+from ragonometrics.core.main import Settings
 
 
 def test_write_run_manifest(tmp_path):

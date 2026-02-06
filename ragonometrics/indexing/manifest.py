@@ -1,3 +1,5 @@
+"""Index manifest and version sidecar builders. Used by indexer to record build provenance for reproducible artifacts."""
+
 from __future__ import annotations
 
 import json
@@ -6,8 +8,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Optional
 
-from ragonometrics.config import PROJECT_ROOT
-from ragonometrics.main import Settings
+from ragonometrics.core.config import PROJECT_ROOT
+from ragonometrics.core.main import Settings
 
 
 def get_git_sha(repo_root: Path = PROJECT_ROOT) -> Optional[str]:

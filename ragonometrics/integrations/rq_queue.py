@@ -1,3 +1,5 @@
+"""RQ/Redis queue wrapper for asynchronous indexing jobs. Used to run pipeline indexing in the background."""
+
 from __future__ import annotations
 
 from rq import Queue
@@ -5,8 +7,8 @@ from redis import Redis
 from pathlib import Path
 from typing import List
 
-from ragonometrics.indexer import build_index
-from ragonometrics.main import load_settings
+from ragonometrics.indexing.indexer import build_index
+from ragonometrics.core.main import load_settings
 
 
 def enqueue_index(papers: List[Path], redis_url: str = "redis://redis:6379"):

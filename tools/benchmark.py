@@ -4,8 +4,8 @@ import argparse
 import json
 from pathlib import Path
 
-from ragonometrics.benchmark import benchmark_chunking, benchmark_indexing
-from ragonometrics.main import load_settings
+from ragonometrics.eval.benchmark import benchmark_chunking, benchmark_indexing
+from ragonometrics.core.main import load_settings
 
 
 def main() -> None:

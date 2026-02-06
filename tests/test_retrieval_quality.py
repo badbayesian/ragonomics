@@ -1,8 +1,8 @@
 import os
 from pathlib import Path
 
-from ragonometrics.io_loaders import chunk_pages
-from ragonometrics.main import expand_queries, Settings
+from ragonometrics.core.io_loaders import chunk_pages
+from ragonometrics.core.main import expand_queries, Settings
 
 
 def test_section_aware_chunking_adds_section(monkeypatch):

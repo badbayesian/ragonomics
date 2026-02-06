@@ -1,3 +1,5 @@
+"""Benchmarks for the RAG pipeline (chunking, embeddings, retrieval) over paper sets. Used to profile and tune pipeline parameters without changing core ingestion or indexing."""
+
 from __future__ import annotations
 
 import csv
@@ -7,8 +9,8 @@ from typing import List, Optional
 
 from openai import OpenAI
 
-from ragonometrics.indexer import build_index
-from ragonometrics.main import (
+from ragonometrics.indexing.indexer import build_index
+from ragonometrics.core.main import (
     Paper,
     Settings,
     embed_texts,

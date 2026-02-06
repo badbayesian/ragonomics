@@ -5,9 +5,11 @@ Overview
 --------
 Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes with FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. DOI metadata can be fetched from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
 
+This repo is a combination of coding + vibe coding.
+
 Quick Start
 -----------
-1. Install dependencies.
+1. Install dependencies in your enviroment.
 
 ```bash
 python -m pip install -e .
@@ -15,18 +17,14 @@ python -m pip install -e .
 
 2. Install Poppler (provides `pdftotext` and `pdfinfo`). On Windows, add Poppler `bin` to PATH.
 
-3. Set your OpenAI API key.
-
-```powershell
-$env:OPENAI_API_KEY = "sk-..."
-```
+3. Set your OpenAI API key in the .env file.
 
 4. Place PDFs in `papers/` (e.g., `papers/example.pdf`) or set `PAPERS_DIR`.
 
 5. Run the summarizer.
 
 ```bash
-python -m ragonometrics.main
+python -m ragonometrics.core.main
 ```
 
 Console Entrypoints
@@ -34,23 +32,27 @@ Console Entrypoints
 After installation, use:
 
 ```bash
-ragonometrics index --papers-dir papers/ --index-path vectors.index --meta-db-url "postgres://user:pass@localhost:5432/ragonometrics"
 ragonometrics query --paper papers/example.pdf --question "What is the research question?" --model gpt-5-nano
-ragonometrics ui
 ragonometrics benchmark --papers-dir papers/ --out bench/benchmark.csv --limit 5
 ```
+
+Commands that require docker:
+```bash
+ragonometrics index --papers-dir papers/ --index-path vectors.index --meta-db-url "postgres://user:pass@localhost:5432/ragonometrics"
+```
+
 
 Streamlit App
 -------------
 Run the local UI:
 
 ```bash
-streamlit run ragonometrics/streamlit_app.py
+ragonometrics ui
 ```
 
 Notes:
 - The app includes a Chat tab and a DOI Network tab.
-- Answers are concise and researcher-focused, with citations and snapshots.
+- Answers are concise and researcher-focused (with prompt engineering), with citations and snapshots.
 - Optional page snapshots require `pdf2image` + Poppler and benefit from `pytesseract` for highlight overlays.
 
 Configuration (Env Vars)
@@ -71,16 +73,26 @@ Configuration (Env Vars)
 
 Components and Files
 --------------------
-- Prompts: `ragonometrics/prompts.py`.
-- IO + preprocessing: `ragonometrics/io_loaders.py`.
-- Summarizer CLI: `ragonometrics/main.py`.
-- Pipeline tools (chunk summaries, citations, metadata): `ragonometrics/pipeline.py`.
-- Indexing: `ragonometrics/indexer.py` (FAISS + Postgres metadata).
-- Retrieval: `ragonometrics/retriever.py` (hybrid BM25 + FAISS).
-- Streamlit UI: `ragonometrics/streamlit_app.py`.
-- Queue worker: `ragonometrics/rq_queue.py` (Redis + RQ).
-- Crossref cache: `ragonometrics/crossref_cache.py` (Postgres cache).
-- Benchmarks: `ragonometrics/benchmark.py` and wrapper `tools/benchmark.py`.
+- Prompts: `ragonometrics/core/prompts.py`.
+- IO + preprocessing: `ragonometrics/core/io_loaders.py`.
+- Summarizer entrypoint: `ragonometrics/core/main.py`.
+- Pipeline tools (chunk summaries, citations, metadata): `ragonometrics/pipeline/pipeline.py`.
+- Indexing: `ragonometrics/indexing/indexer.py` (FAISS + Postgres metadata).
+- Retrieval: `ragonometrics/indexing/retriever.py` (hybrid BM25 + FAISS).
+- Streamlit UI: `ragonometrics/ui/streamlit_app.py`.
+- Queue worker: `ragonometrics/integrations/rq_queue.py` (Redis + RQ).
+- Crossref cache: `ragonometrics/integrations/crossref_cache.py` (Postgres cache).
+- Benchmarks: `ragonometrics/eval/benchmark.py` and wrapper `tools/benchmark.py`.
+
+Package Layout
+--------------
+- `ragonometrics/core/`: ingestion, config, prompts, and core retrieval utilities.
+- `ragonometrics/pipeline/`: LLM orchestration, caching, and token usage.
+- `ragonometrics/indexing/`: FAISS indexing, metadata, manifests, and retrieval.
+- `ragonometrics/integrations/`: Crossref and Redis/RQ integrations.
+- `ragonometrics/ui/`: Streamlit UI.
+- `ragonometrics/eval/`: evaluation and benchmarking tools.
+- `ragonometrics/cli/`: CLI entrypoints.
 
 Indexing and Retrieval
 ----------------------
@@ -101,7 +113,7 @@ Queueing
 Benchmarks
 ----------
 - `tools/benchmark.py` runs indexing and chunking benchmarks against sample PDFs.
-- `ragonometrics/benchmark.py` supports retrieval benchmarks and OCR forcing.
+- `ragonometrics/eval/benchmark.py` supports retrieval benchmarks and OCR forcing.
 
 Troubleshooting
 ---------------

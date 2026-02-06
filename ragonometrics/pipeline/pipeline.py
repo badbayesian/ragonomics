@@ -1,3 +1,5 @@
+"""LLM pipeline routines for summarization, citation extraction, and metadata. Wraps OpenAI calls and is used by CLI and main flows."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,8 +11,8 @@ import re
 
 from openai import OpenAI
 
-from ragonometrics.io_loaders import chunk_words, load_pdf, load_text_file
-from ragonometrics.prompts import (
+from ragonometrics.core.io_loaders import chunk_words, load_pdf, load_text_file
+from ragonometrics.core.prompts import (
     PIPELINE_CITATION_EXTRACT_INSTRUCTIONS,
     PIPELINE_CITATION_RANK_INSTRUCTIONS,
     PIPELINE_SUMMARY_CHUNK_INSTRUCTIONS,
@@ -549,7 +551,7 @@ def call_openai(
                 payload["temperature"] = temperature
             resp = client.responses.create(**payload)
             try:
-                from ragonometrics.token_usage import record_usage
+                from ragonometrics.pipeline.token_usage import record_usage
 
                 usage = getattr(resp, "usage", None)
                 input_tokens = output_tokens = total_tokens = 0
@@ -580,7 +582,7 @@ def call_openai(
                 if db_url:
                     try:
                         import psycopg2
-                        from ragonometrics import metadata
+                        from ragonometrics.indexing import metadata
 
                         conn = psycopg2.connect(db_url)
                         metadata.record_failure(

@@ -1,3 +1,5 @@
+"""Primary CLI entrypoints for indexing, querying, UI, and benchmarks. Wires top-level commands to core pipeline components."""
+
 from __future__ import annotations
 
 import argparse
@@ -7,9 +9,9 @@ from pathlib import Path
 
 from openai import OpenAI
 
-from ragonometrics.benchmark import bench_papers
-from ragonometrics.indexer import build_index
-from ragonometrics.main import (
+from ragonometrics.eval.benchmark import bench_papers
+from ragonometrics.indexing.indexer import build_index
+from ragonometrics.core.main import (
     embed_texts,
     load_papers,
     load_settings,
@@ -17,8 +19,8 @@ from ragonometrics.main import (
     top_k_context,
 )
 from ragonometrics.pipeline import call_openai
-from ragonometrics.prompts import RESEARCHER_QA_PROMPT
-from ragonometrics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.core.prompts import RESEARCHER_QA_PROMPT
+from ragonometrics.pipeline.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
 
 
 def cmd_index(args: argparse.Namespace) -> int:

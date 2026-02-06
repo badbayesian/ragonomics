@@ -1,3 +1,5 @@
+"""Core pipeline primitives for settings, ingestion, embeddings, retrieval, and summarization. Shared by CLI, indexing, and the Streamlit UI to build end-to-end RAG runs."""
+
 from __future__ import annotations
 
 import math
@@ -16,17 +18,17 @@ from typing import Optional
 
 from openai import OpenAI
 
-from ragonometrics.config import DEFAULT_CONFIG_PATH, build_effective_config, hash_config_dict, load_config
-from ragonometrics.io_loaders import (
+from ragonometrics.core.config import DEFAULT_CONFIG_PATH, build_effective_config, hash_config_dict, load_config
+from ragonometrics.core.io_loaders import (
     chunk_pages,
     normalize_text,
     run_pdftotext_pages,
 )
-from ragonometrics.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
+from ragonometrics.core.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
 from ragonometrics.pipeline import call_openai
 
 
-PROJECT_ROOT = Path(__file__).resolve().parents[1]
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
 DOTENV_PATH = PROJECT_ROOT / ".env"
 
 
@@ -219,7 +221,7 @@ def fetch_references_from_crossref(doi: str, timeout: int = 10, cache_db_url: st
     # Crossref expects DOI path-encoded (slashes allowed) — use as-is but URL-quote
     # Optionally use cached Crossref responses with backoff
     if cache_db_url:
-        from .crossref_cache import fetch_crossref_with_cache
+        from ragonometrics.integrations.crossref_cache import fetch_crossref_with_cache
 
         raw = fetch_crossref_with_cache(doi, cache_db_url)
         if not raw:
@@ -240,7 +242,7 @@ def fetch_references_from_crossref(doi: str, timeout: int = 10, cache_db_url: st
                     db_url = os.environ.get("DATABASE_URL")
                     if db_url:
                         try:
-                            from ragonometrics import metadata
+                            from ragonometrics.indexing import metadata
 
                             conn = psycopg2.connect(db_url)
                             metadata.record_failure(conn, "crossref", str(exc), {"doi": doi})
@@ -405,7 +407,7 @@ def embed_texts(
         batch = texts[i : i + batch_size]
         resp = client.embeddings.create(model=model, input=batch)
         try:
-            from ragonometrics.token_usage import record_usage
+            from ragonometrics.pipeline.token_usage import record_usage
 
             usage = getattr(resp, "usage", None)
             input_tokens = output_tokens = total_tokens = 0
@@ -566,7 +568,7 @@ def top_k_context(
     db_url = os.environ.get("DATABASE_URL")
     if db_url:
         try:
-            from .retriever import hybrid_search
+            from ragonometrics.indexing.retriever import hybrid_search
         except Exception:
             hybrid_search = None
 
@@ -628,7 +630,7 @@ def top_k_context(
     # fallback: support chunks as list of dicts with provenance metadata or simple strings
     query_emb_response = client.embeddings.create(model=settings.embedding_model, input=queries)
     try:
-        from ragonometrics.token_usage import record_usage
+        from ragonometrics.pipeline.token_usage import record_usage
 
         usage = getattr(query_emb_response, "usage", None)
         input_tokens = output_tokens = total_tokens = 0

@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ragonometrics.query_cache import get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.pipeline.query_cache import get_cached_answer, make_cache_key, set_cached_answer
 
 
 def test_query_cache_roundtrip(tmp_path):

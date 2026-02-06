@@ -34,10 +34,10 @@ def test_top_k_context_uses_hybrid(monkeypatch):
     import importlib.util
     from pathlib import Path
 
-    spec = importlib.util.spec_from_file_location("ragonometrics.main", Path("ragonometrics/main.py").resolve())
+    spec = importlib.util.spec_from_file_location("ragonometrics.core.main", Path("ragonometrics/core/main.py").resolve())
     main = importlib.util.module_from_spec(spec)
     import sys
-    sys.modules["ragonometrics.main"] = main
+    sys.modules["ragonometrics.core.main"] = main
     spec.loader.exec_module(main)
 
     top_k_context = main.top_k_context

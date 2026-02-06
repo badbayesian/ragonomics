@@ -1,9 +1,13 @@
+"""Streamlit UI for interactive RAG over papers with citations and DOI network. Uses main pipeline functions for retrieval and answers."""
+
 from __future__ import annotations
 
 import os
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from uuid import uuid4
+from dataclasses import replace
+import hashlib
 import html
 import re
 from typing import List, Optional
@@ -11,7 +15,7 @@ from typing import List, Optional
 import streamlit as st
 from openai import OpenAI
 
-from ragonometrics.main import (
+from ragonometrics.core.main import (
     Settings,
     Paper,
     build_and_store_doi_network,
@@ -23,9 +27,9 @@ from ragonometrics.main import (
     top_k_context,
 )
 from ragonometrics.pipeline import call_openai
-from ragonometrics.prompts import RESEARCHER_QA_PROMPT
-from ragonometrics.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
-from ragonometrics.token_usage import DEFAULT_USAGE_DB, get_recent_usage, get_usage_by_model, get_usage_summary
+from ragonometrics.core.prompts import RESEARCHER_QA_PROMPT
+from ragonometrics.pipeline.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
+from ragonometrics.pipeline.token_usage import DEFAULT_USAGE_DB, get_recent_usage, get_usage_by_model, get_usage_summary
 
 import networkx as nx
 import plotly.graph_objects as go
@@ -173,7 +177,7 @@ def highlight_image_terms(image, terms: List[str]):
     return img
 
 
-def render_citation_snapshot(path: Path, citation: dict, idx: int, query: str) -> None:
+def render_citation_snapshot(path: Path, citation: dict, key_prefix: str, query: str) -> None:
     """Render a highlighted text snapshot and optional page image for a citation chunk."""
     meta = citation.get("meta") or "Context chunk"
     text = citation.get("text") or ""
@@ -192,7 +196,7 @@ def render_citation_snapshot(path: Path, citation: dict, idx: int, query: str) -
         st.info("No text available for this chunk.")
 
     if page and convert_from_path:
-        show_key = f"show_page_{idx}_{page}"
+        show_key = f"{key_prefix}_show_page_{page}"
         if st.checkbox(f"Show page {page} snapshot", key=show_key):
             try:
                 images = convert_from_path(str(path), first_page=page, last_page=page)
@@ -215,7 +219,13 @@ def main():
     st.sidebar.header("Settings")
     papers_dir = st.sidebar.text_input("Papers directory", str(settings.papers_dir))
     papers_dir = Path(papers_dir)
-    top_k = st.sidebar.number_input("Top K chunks", value=settings.top_k, min_value=1)
+    top_k = st.sidebar.number_input(
+        "Top K context chunks",
+        value=int(settings.top_k),
+        min_value=1,
+        max_value=30,
+        step=1,
+    )
     model_options = [settings.chat_model]
     extra_models = [m.strip() for m in os.getenv("LLM_MODELS", "").split(",") if m.strip()]
     for m in extra_models:
@@ -253,6 +263,13 @@ def main():
     if "last_request_id" not in st.session_state:
         st.session_state.last_request_id = None
 
+    if st.sidebar.button("Clear chat history"):
+        st.session_state.history = []
+
+    retrieval_settings = settings
+    if int(top_k) != settings.top_k:
+        retrieval_settings = replace(settings, top_k=int(top_k))
+
     tab_chat, tab_doi, tab_usage = st.tabs(["Chat", "DOI Network", "Usage"])
 
     with tab_chat:
@@ -271,14 +288,12 @@ def main():
             request_id = uuid4().hex
             st.session_state.last_request_id = request_id
             with st.spinner("Retrieving context and querying model..."):
-                # compute top-k context using the same cosine-based retriever
-                # context will include provenance annotations like (page X words Y-Z)
                 context = top_k_context(
                     chunks,
                     chunk_embeddings,
                     query=query,
                     client=client,
-                    settings=settings,
+                    settings=retrieval_settings,
                     session_id=st.session_state.session_id,
                     request_id=request_id,
                 )
@@ -325,24 +340,53 @@ def main():
 
                 citations = parse_context_chunks(context)
                 st.session_state.history.append(
-                    {"query": query, "answer": answer, "citations": citations}
+                    {
+                        "query": query,
+                        "answer": answer,
+                        "context": context,
+                        "citations": citations,
+                        "paper_path": str(paper.path),
+                        "request_id": request_id,
+                    }
                 )
 
         if st.session_state.history:
             for i, item in enumerate(reversed(st.session_state.history), start=1):
+                q = None
+                a = None
+                citations: List[dict] = []
+                citation_path = paper.path
+                request_id = None
                 if isinstance(item, tuple):
                     q, a = item
-                    citations = []
                 else:
                     q = item.get("query")
                     a = item.get("answer")
-                    citations = item.get("citations", [])
+                    context = item.get("context")
+                    citations = item.get("citations")
+                    item_paper_path = item.get("paper_path")
+                    request_id = item.get("request_id")
+                    if context:
+                        citations = parse_context_chunks(context)
+                    elif citations is None:
+                        citations = []
+                    if item_paper_path:
+                        citation_path = Path(item_paper_path)
+                    else:
+                        citation_path = paper.path
+                history_id = request_id
+                if not history_id:
+                    token = f"{q or ''}|{a or ''}"
+                    history_id = hashlib.sha256(token.encode("utf-8")).hexdigest()[:10]
 
                 st.markdown(f"**Q:** {q}")
                 st.markdown(f"**A:** {a}")
 
                 if citations:
                     st.markdown("**Citations & Snapshots**")
+                    st.caption(
+                        f"Showing {len(citations)} chunks (top_k={retrieval_settings.top_k}, total_chunks={len(chunks)})"
+                    )
                     tab_labels = []
                     for c_idx, c in enumerate(citations, start=1):
                         page = c.get("page")
@@ -351,7 +395,8 @@ def main():
                     tabs = st.tabs(tab_labels)
                     for c_idx, (tab, c) in enumerate(zip(tabs, citations), start=1):
                         with tab:
-                            render_citation_snapshot(paper.path, c, idx=(i * 100 + c_idx), query=q)
+                            key_prefix = f"citation_{history_id}_{c_idx}"
+                            render_citation_snapshot(citation_path, c, key_prefix=key_prefix, query=q or "")
                 st.markdown("---")
 
     with tab_doi:
@@ -485,4 +530,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

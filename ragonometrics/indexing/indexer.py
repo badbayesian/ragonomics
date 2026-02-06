@@ -1,3 +1,5 @@
+"""Index builder for embeddings and Postgres metadata. Creates FAISS indexes and run artifacts consumed by retrieval."""
+
 from __future__ import annotations
 
 import json
@@ -8,7 +10,7 @@ import faiss
 import numpy as np
 from openai import OpenAI
 
-from ragonometrics.main import (
+from ragonometrics.core.main import (
     Paper,
     Settings,
     embed_texts,
@@ -22,8 +24,8 @@ from datetime import datetime
 import hashlib
 import uuid
 from . import metadata
-from ragonometrics.manifest import build_index_version, build_run_manifest, write_index_version_sidecar, write_run_manifest
-from ragonometrics.logging_utils import log_event
+from ragonometrics.indexing.manifest import build_index_version, build_run_manifest, write_index_version_sidecar, write_run_manifest
+from ragonometrics.core.logging_utils import log_event
 
 
 def normalize(v: np.ndarray) -> np.ndarray:

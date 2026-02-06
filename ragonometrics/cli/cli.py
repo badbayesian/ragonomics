@@ -1,3 +1,5 @@
+"""CLI wrappers for LLM pipeline tasks (summarize, citations, ranking, metadata). Provides a simple entrypoint that calls ragonometrics.pipeline functions."""
+
 from __future__ import annotations
 
 import argparse
@@ -5,7 +7,7 @@ import json
 import os
 from pathlib import Path
 
-from .pipeline import (
+from ragonometrics.pipeline import (
     DEFAULT_MAX_OUTPUT_TOKENS,
     DEFAULT_MODEL,
     extract_metadata,
@@ -74,7 +76,7 @@ def add_common_args(p: argparse.ArgumentParser) -> None:
 
 def main() -> None:
     """CLI entry point for the RAG pipeline commands."""
-    load_env(Path(__file__).resolve().parents[1] / ".env")
+    load_env(Path(__file__).resolve().parents[2] / ".env")
     ap = argparse.ArgumentParser(prog="rag-pipeline")
     sub = ap.add_subparsers(dest="cmd", required=True)
 

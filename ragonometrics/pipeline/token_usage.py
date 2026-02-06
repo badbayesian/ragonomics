@@ -1,3 +1,5 @@
+"""SQLite-backed token usage logging and reporting. Used across pipeline calls to track LLM usage and costs."""
+
 from __future__ import annotations
 
 import json
@@ -7,7 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional
 
-from ragonometrics.config import PROJECT_ROOT
+from ragonometrics.core.config import PROJECT_ROOT
 
 
 DEFAULT_USAGE_DB = PROJECT_ROOT / "ragonometrics_token_usage.sqlite"

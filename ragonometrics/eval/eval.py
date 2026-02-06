@@ -1,3 +1,5 @@
+"""Evaluation helpers for retrieval and answer-quality metrics. Used to assess pipeline output against golden examples."""
+
 from __future__ import annotations
 
 import json

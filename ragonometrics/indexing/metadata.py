@@ -1,3 +1,5 @@
+"""Postgres metadata schema and helpers for pipeline runs and index shards. Used by indexing and retrieval to store and resolve artifacts."""
+
 from __future__ import annotations
 
 import time

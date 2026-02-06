@@ -1,4 +1,4 @@
-"""RAG pipeline utilities that integrate with OpenAI APIs."""
+"""Ragonometrics package exports for core pipeline utilities and LLM helpers."""
 
 from .pipeline import (
     summarize_paper,

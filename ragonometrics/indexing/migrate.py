@@ -1,3 +1,5 @@
+"""Migration utilities for moving SQLite metadata and DOI data to Postgres. Supports pipeline upgrades from local to DB-backed deployments."""
+
 from __future__ import annotations
 
 import argparse

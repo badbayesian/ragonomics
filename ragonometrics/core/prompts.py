@@ -1,4 +1,4 @@
-"""Centralized prompt strings for Ragonometrics."""
+"""Centralized prompt strings used by the pipeline and UI."""
 
 MAIN_SUMMARY_PROMPT = (
     "Summarize the economics paper for a researcher using only the provided context. "

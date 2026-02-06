@@ -1,3 +1,5 @@
+"""Persistent cache for Crossref DOI lookups. Used by DOI network builders to avoid repeated API calls during pipeline runs."""
+
 from __future__ import annotations
 
 import time
