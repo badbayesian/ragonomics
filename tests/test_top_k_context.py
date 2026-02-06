@@ -1,3 +1,5 @@
+"""Top-k context tests for the hybrid retrieval path and output content."""
+
 import os
 import types
 import psycopg2

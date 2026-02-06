@@ -1,3 +1,5 @@
+"""Evaluation metric tests for recall/MRR, citation detection, and self-consistency."""
+
 from ragonometrics.eval import (
     answer_has_citation,
     evaluate_answers,
@@ -28,4 +30,18 @@ def test_answer_metrics():
     metrics = evaluate_answers([ans, "No citation here"])
     assert metrics["citation_coverage"] == 0.5
     assert metrics["hallucination_rate_proxy"] == 0.5
+
+
+def test_evaluate_retrieval_chunks():
+    retrieved_meta = [{"chunk_id": "a"}, {"chunk_id": "b"}, {"chunk_id": "c"}]
+    metrics = evaluate_retrieval(retrieved_meta, expected_pages=[], expected_chunk_ids=["b"], k=2)
+    assert metrics["recall_at_k"] == 0.0
+    assert metrics["mrr_at_k"] == 0.0
+    assert metrics["recall_at_k_chunks"] == 1.0
+    assert metrics["mrr_at_k_chunks"] == 0.5
+
+
+def test_self_consistency_rate():
+    metrics = evaluate_answers(["Result is 5.", "result is 5.", "Different."])
+    assert abs(metrics["self_consistency"] - (2.0 / 3.0)) < 1e-6
 

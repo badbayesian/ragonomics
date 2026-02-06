@@ -1,3 +1,5 @@
+"""Utility tests for trimming, chunking overlap, and top-k selection."""
+
 import sys
 from pathlib import Path
 from types import SimpleNamespace

@@ -1,3 +1,5 @@
+"""Pytest bootstrap stubs for external deps and a sqlite-backed psycopg2 shim."""
+
 import sys
 import types
 import sqlite3

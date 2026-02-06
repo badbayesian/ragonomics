@@ -1,3 +1,5 @@
+"""Query cache tests for sqlite roundtrip and keying behavior."""
+
 from pathlib import Path
 
 from ragonometrics.pipeline.query_cache import get_cached_answer, make_cache_key, set_cached_answer

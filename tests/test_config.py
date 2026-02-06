@@ -1,3 +1,5 @@
+"""Config loading tests covering env overrides, hashing, and settings resolution."""
+
 import os
 from pathlib import Path
 

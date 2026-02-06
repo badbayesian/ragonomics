@@ -1,3 +1,5 @@
+"""Manifest creation tests for index run sidecar output and key fields."""
+
 from pathlib import Path
 
 from ragonometrics.indexing.manifest import build_run_manifest, write_run_manifest

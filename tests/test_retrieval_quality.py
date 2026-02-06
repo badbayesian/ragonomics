@@ -1,3 +1,5 @@
+"""Retrieval quality tests for section-aware chunking and query expansion defaults."""
+
 import os
 from pathlib import Path
 

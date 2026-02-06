@@ -1,3 +1,5 @@
+"""Hybrid retriever tests for FAISS + DB integration path."""
+
 import os
 import tempfile
 import faiss
