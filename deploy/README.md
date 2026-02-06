@@ -1,4 +1,4 @@
-Deploy (Cloud Stubs)
+Deploy (Cloud Stubs) WIP
 ====================
 
 This folder contains minimal infrastructure stubs for cloud deployments. They are
