@@ -1,4 +1,4 @@
-# Cloud Deployment Notes
+# Cloud Deployment Notes (WIP)
 
 This document outlines cloud deployment patterns for Ragonometrics and highlights
 certification-aligned competencies (AWS/GCP) through concrete infrastructure design.

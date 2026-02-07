@@ -10,7 +10,8 @@ Workflow Diagram
 ----------------
 ```mermaid
 flowchart TD
-  Start["CLI: ragonometrics workflow"] --> Ingest["Ingest PDFs"]
+  Start["CLI: ragonometrics workflow"] --> Prep["Prep (profile corpus)"]
+  Prep --> Ingest["Ingest PDFs"]
   Ingest --> Enrich["External metadata"]
   Enrich --> Econ["Econ data (optional)"]
   Econ --> Agentic["Agentic QA (optional)"]
@@ -18,7 +19,8 @@ flowchart TD
   Index --> Eval["Evaluate"]
   Eval --> Report["Write report JSON"]
 
-  Ingest --> StateDB[(workflow state DB)]
+  Prep --> StateDB[(workflow state DB)]
+  Ingest --> StateDB
   Enrich --> StateDB
   Econ --> StateDB
   Agentic --> StateDB
@@ -39,33 +41,37 @@ The `--papers` flag accepts either a **directory** or a **single PDF file**. The
 
 Step-by-Step Behavior
 ---------------------
-1) Ingest  
+1) Prep  
+   - Profiles the corpus, computes a corpus hash, and writes a prep manifest.  
+   - Optionally hashes files and validates text extraction (configurable via env).  
+
+2) Ingest  
    - Discovers PDFs (`.pdf`) and extracts page-level text.  
    - Uses `pdftotext` + `pdfinfo`, with OCR fallback if enabled.  
    - Emits counts and creates `Paper` objects.
 
-2) Enrich  
-   - Fetches Semantic Scholar and CitEc metadata when available.  
+3) Enrich  
+   - Fetches OpenAlex metadata, falling back to CitEc when OpenAlex data is missing.  
    - Only used as context for downstream analysis.
 
-3) Econ Data (optional)  
+4) Econ Data (optional)  
    - Pulls FRED series if `FRED_API_KEY` or `ECON_SERIES_IDS` are set.
 
-4) Agentic (optional)  
+5) Agentic (optional)  
    - Generates sub-questions (agentic plan).  
    - Answers each sub-question with retrieval context.  
    - Builds a final synthesized answer.  
    - Optionally extracts citations for context enrichment.  
    - Generates structured report questions (A-K) and optional "previous questions" set.
 
-5) Index (optional)  
+6) Index (optional)  
    - Builds FAISS index + Postgres metadata if `DATABASE_URL` is reachable.  
    - Skips gracefully if DB is unreachable.
 
-6) Evaluate  
+7) Evaluate  
    - Computes light-weight chunk statistics (avg/max/min).
 
-7) Report  
+8) Report  
    - Writes a JSON report to [`reports/workflow-report-<run_id>.json`](https://github.com/badbayesian/ragonometrics/tree/main/reports).
 
 Artifacts and State
@@ -73,6 +79,7 @@ Artifacts and State
 - Workflow state DB: [`sqlite/ragonometrics_workflow_state.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_workflow_state.sqlite)
   - `workflow_runs` tracks run metadata and status.
   - `workflow_steps` tracks step outputs, timestamps, status.
+- Prep manifest: [`reports/prep-manifest-<run_id>.json`](https://github.com/badbayesian/ragonometrics/tree/main/reports)
 - Report JSON: [`reports/workflow-report-<run_id>.json`](https://github.com/badbayesian/ragonometrics/tree/main/reports)
 - Usage tracking: [`sqlite/ragonometrics_token_usage.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_token_usage.sqlite)
 - Optional FAISS + metadata: [`vectors.index`](https://github.com/badbayesian/ragonometrics/blob/main/vectors.index), [`indexes/`](https://github.com/badbayesian/ragonometrics/tree/main/indexes), Postgres tables.
@@ -82,7 +89,7 @@ Report Schema Highlights
 Each report includes:
 - `run_id`, `started_at`, `finished_at`
 - `config` snapshot (effective config + hash)
-- Step outputs under `ingest`, `enrich`, `econ_data`, `agentic`, `index`, `evaluate`
+- Step outputs under `prep`, `ingest`, `enrich`, `econ_data`, `agentic`, `index`, `evaluate`
 
 Agentic outputs include:
 - `subquestions`, `sub_answers`, `final_answer`
@@ -117,6 +124,10 @@ Key Configuration Flags
 | `DATABASE_URL` | Postgres URL for indexing + hybrid retrieval. | empty | string (URL) | |
 | `FRED_API_KEY` | FRED API key for econ step. | unset | string | Enables econ step. |
 | `ECON_SERIES_IDS` | FRED series IDs. | empty | CSV string | Defaults to `GDPC1,FEDFUNDS` when econ step enabled with no list. |
+| `PREP_HASH_FILES` | Hash PDF files during prep. | `1` | bool | Set `0` for faster scans. |
+| `PREP_VALIDATE_TEXT` | Run text extraction during prep. | `0` | bool | Enables empty-text detection. |
+| `PREP_FAIL_ON_EMPTY` | Fail workflow if corpus is empty. | `0` | bool | Treats no PDFs or no text as failure. |
+| `PREP_VALIDATE_ONLY` | Exit after prep step. | `0` | bool | Writes report and skips ingest/agentic/index. |
 
 See [Configuration](https://github.com/badbayesian/ragonometrics/blob/main/docs/configuration/configuration.md) for the full list.
 

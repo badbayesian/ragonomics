@@ -4,7 +4,7 @@ This document summarizes the current Ragonometrics architecture, design tradeoff
 
 Overview
 --------
-Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes embeddings in FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. The system enriches papers with external metadata (Semantic Scholar, CitEc, Crossref) when available. DOI metadata can be retrieved from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
+Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes embeddings in FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. The system enriches papers with external metadata (OpenAlex, CitEc, Crossref) when available. DOI metadata can be retrieved from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
 
 Architecture Diagram
 --------------------
@@ -18,7 +18,7 @@ flowchart LR
   subgraph Enrichment
     Chunks -->|DOI/RePEc extract| Ids[Identifiers]
     Ids -->|Crossref| Crossref[Crossref Cache]
-    Ids -->|Semantic Scholar| S2[Semantic Scholar Cache]
+    Ids -->|OpenAlex| OA[OpenAlex Cache]
     Ids -->|CitEc| CitEc[CitEc Cache]
   end
 
@@ -75,7 +75,7 @@ Key Components
   - [`ragonometrics/core/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/core): settings, ingestion, extraction, core prompts, logging.
   - [`ragonometrics/pipeline/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/pipeline): LLM call wrapper, query cache, token usage accounting.
   - [`ragonometrics/indexing/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/indexing): FAISS indexing, Postgres metadata, hybrid retrieval, migrations.
-  - [`ragonometrics/integrations/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/integrations): Crossref cache, Semantic Scholar, CitEc, Redis/RQ jobs.
+  - [`ragonometrics/integrations/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/integrations): Crossref cache, OpenAlex, CitEc, Redis/RQ jobs.
   - [`ragonometrics/ui/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/ui): Streamlit app.
   - [`ragonometrics/eval/`](https://github.com/badbayesian/ragonometrics/tree/main/ragonometrics/eval): eval + benchmark tooling.
 - PDF extraction and preprocessing
@@ -93,16 +93,16 @@ Key Components
   - Idempotent indexing based on a deterministic key (same corpus + params).
 - UI and CLI
   - Streamlit UI ([`ragonometrics/ui/streamlit_app.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/ui/streamlit_app.py)) provides Chat, DOI Network, and Usage tabs.
-  - External metadata (Semantic Scholar + CitEc) is shown in a UI expander and injected into prompts.
+  - External metadata (OpenAlex with CitEc fallback) is shown in a UI expander and injected into prompts.
   - Console entrypoints: `ragonometrics index | query | ui | benchmark`.
 - Agentic workflow
-- [`ragonometrics/pipeline/workflow.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/workflow.py) orchestrates ingest -> enrich -> index -> evaluate -> report.
+- [`ragonometrics/pipeline/workflow.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/workflow.py) orchestrates prep -> ingest -> enrich -> index -> evaluate -> report.
   - State persisted in SQLite via [`ragonometrics/pipeline/state.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/pipeline/state.py).
   - Optional async execution with Redis + RQ ([`ragonometrics/integrations/rq_queue.py`](https://github.com/badbayesian/ragonometrics/blob/main/ragonometrics/integrations/rq_queue.py)).
   - Optional agentic step plans sub-questions, retrieves context, and synthesizes an answer.
 - Caching
   - Crossref responses cached in Postgres when a cache DB is provided.
-  - Semantic Scholar metadata cached in SQLite ([`sqlite/ragonometrics_semantic_scholar.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_semantic_scholar.sqlite)).
+  - OpenAlex metadata cached in SQLite ([`sqlite/ragonometrics_openalex.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_openalex.sqlite)).
   - CitEc metadata cached in SQLite ([`sqlite/ragonometrics_citec.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_citec.sqlite)).
   - Query/answer cache stored in local SQLite ([`sqlite/ragonometrics_query_cache.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_query_cache.sqlite)).
   - Token usage captured in SQLite ([`sqlite/ragonometrics_token_usage.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_token_usage.sqlite)).
@@ -115,7 +115,7 @@ Data and Metadata Stores
   - FAISS indexes in [`vectors.index`](https://github.com/badbayesian/ragonometrics/blob/main/vectors.index) and versioned shards in [`indexes/`](https://github.com/badbayesian/ragonometrics/tree/main/indexes).
   - Index version sidecar JSON next to each shard.
   - Query cache in [`sqlite/ragonometrics_query_cache.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_query_cache.sqlite).
-  - Semantic Scholar cache in [`sqlite/ragonometrics_semantic_scholar.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_semantic_scholar.sqlite).
+  - OpenAlex cache in [`sqlite/ragonometrics_openalex.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_openalex.sqlite).
   - CitEc cache in [`sqlite/ragonometrics_citec.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_citec.sqlite).
   - Usage tracking in [`sqlite/ragonometrics_token_usage.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_token_usage.sqlite).
   - Workflow state in [`sqlite/ragonometrics_workflow_state.sqlite`](https://github.com/badbayesian/ragonometrics/blob/main/sqlite/ragonometrics_workflow_state.sqlite).
@@ -124,6 +124,7 @@ Reproducibility
 ---------------
 - A config hash is computed from effective settings (config + env overrides).
 - [`config.toml`](https://github.com/badbayesian/ragonometrics/blob/main/config.toml) is the primary config surface; env vars override for deploys.
+- A prep manifest records corpus fingerprints and file-level metadata before ingestion.
 - Each indexing run writes a manifest JSON next to the index shard containing:
   - git SHA, dependency fingerprints, config hash + effective config snapshot.
   - corpus fingerprint, embedding dim + hashes, chunking scheme, timestamps, and artifact paths.
@@ -148,7 +149,7 @@ Operational Hardening
 - Idempotent indexing: same corpus + params does not double-insert.
 - Structured JSON logging for key operations.
 - OpenAI and Crossref calls include retries and failure recording in Postgres.
-- Semantic Scholar and CitEc calls include retries and local caching.
+- OpenAlex and CitEc calls include retries and local caching.
 
 Economics Data
 --------------

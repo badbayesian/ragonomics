@@ -6,6 +6,7 @@ MAIN_SUMMARY_PROMPT = (
     "key findings, and implications. If the context is thin, say what is missing."
 )
 
+
 RESEARCHER_QA_PROMPT = (
     "You are answering a researcher. Use only the provided context. "
     "Respond succinctly, generally in bullet points. "

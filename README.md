@@ -3,7 +3,7 @@ Ragonometrics - RAG pipeline for economics papers
 
 Overview
 --------
-Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes with FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. External metadata is enriched via Semantic Scholar and CitEc when available, and DOI metadata can be fetched from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
+Ragonometrics ingests PDFs, extracts per-page text for provenance, chunks with overlap, embeds chunks, indexes with FAISS, and serves retrieval + LLM summaries via CLI and a Streamlit UI. External metadata is enriched via OpenAlex and CitEc when available, and DOI metadata can be fetched from Crossref and cached. The system is designed to be reproducible, auditable, and scalable from local runs to a Postgres-backed deployment.
 
 This repo is a combination of coding + vibe coding.
 
@@ -27,6 +27,29 @@ python -m pip install -e .
 python -m ragonometrics.core.main
 ```
 
+CLI Commands
+------------
+- `ragonometrics index`: build a FAISS index and Postgres metadata store for fast querying later.
+```bash
+ragonometrics index --papers-dir papers/ --index-path vectors.index --meta-db-url "postgres://user:pass@localhost:5432/ragonometrics"
+```
+- `ragonometrics query`: ask a question against a single PDF.
+```bash
+ragonometrics query --paper papers/example.pdf --question "What is the research question?" --model gpt-5-nano
+```
+- `ragonometrics ui`: launch the Streamlit UI for interactive questions
+```bash
+ragonometrics ui
+```
+- `ragonometrics workflow`: run the multi-step workflow (optionally agentic).
+```bash
+ragonometrics workflow --papers papers/
+ragonometrics workflow --papers papers/ --agentic --question "What is the key contribution?"
+ragonometrics workflow --papers papers/ --agentic --agentic-citations --question "What is the key contribution?"
+```
+
+
+
 Docs
 -------------
 Docs root: [docs/](https://github.com/badbayesian/ragonometrics/tree/main/docs)
@@ -44,3 +67,4 @@ Docs root: [docs/](https://github.com/badbayesian/ragonometrics/tree/main/docs)
 - [Onboarding](https://github.com/badbayesian/ragonometrics/blob/main/docs/guides/onboarding.md): Getting started for contributors.
 - [Contributing](https://github.com/badbayesian/ragonometrics/blob/main/docs/guides/contributing.md): Contribution guidelines.
 - [ADRs](https://github.com/badbayesian/ragonometrics/tree/main/docs/adr): Architecture decision records.
+

@@ -15,6 +15,8 @@ import requests
 import psycopg2
 from datetime import datetime
 from typing import Optional
+from tqdm import tqdm
+
 
 from openai import OpenAI
 
@@ -31,9 +33,9 @@ from ragonometrics.core.io_loaders import (
     run_pdftotext_pages,
 )
 from ragonometrics.core.prompts import MAIN_SUMMARY_PROMPT, QUERY_EXPANSION_PROMPT, RERANK_PROMPT
-from ragonometrics.integrations.semantic_scholar import (
-    fetch_semantic_scholar_metadata,
-    format_semantic_scholar_context,
+from ragonometrics.integrations.openalex import (
+    fetch_openalex_metadata,
+    format_openalex_context,
 )
 from ragonometrics.integrations.citec import fetch_citec_plain, format_citec_context
 from ragonometrics.pipeline import call_openai
@@ -84,7 +86,7 @@ class Paper:
         author: Paper author(s).
         text: Full extracted text, normalized.
         pages: Optional per-page text list.
-        semantic_scholar: Optional Semantic Scholar metadata dict.
+        openalex: Optional OpenAlex metadata dict.
         citec: Optional CitEc citation metadata dict.
     """
 
@@ -93,7 +95,7 @@ class Paper:
     author: str
     text: str
     pages: List[str] | None = None
-    semantic_scholar: Dict[str, Any] | None = None
+    openalex: Dict[str, Any] | None = None
     citec: Dict[str, Any] | None = None
 
 
@@ -784,12 +786,12 @@ def summarize_paper(client: OpenAI, paper: Paper, settings: Settings) -> str:
     context = top_k_context(
         chunks,
         chunk_embeddings,
-        query="Summarize the research question, methods, key findings, and implications.",
+        query=MAIN_SUMMARY_PROMPT,
         client=client,
         settings=settings,
     )
 
-    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+    openalex_context = format_openalex_context(paper.openalex)
     citec_context = format_citec_context(paper.citec)
     user_input = (
         f"Title: {paper.title}\n"
@@ -797,7 +799,7 @@ def summarize_paper(client: OpenAI, paper: Paper, settings: Settings) -> str:
         f"Context:\n{context}\n\n"
         "Write the summary now."
     )
-    prefix_parts = [ctx for ctx in (semantic_context, citec_context) if ctx]
+    prefix_parts = [ctx for ctx in (openalex_context, citec_context) if ctx]
     if prefix_parts:
         prefix = "\n\n".join(prefix_parts)
         user_input = f"{prefix}\n\n{user_input}"
@@ -830,7 +832,6 @@ def load_papers(
     iterator = path_list
     if progress:
         try:
-            from tqdm import tqdm
 
             iterator = tqdm(path_list, desc=progress_desc)
         except Exception:
@@ -841,30 +842,42 @@ def load_papers(
         page_texts = run_pdftotext_pages(path)
         normalized_pages = [normalize_text(p) for p in page_texts if p is not None]
         text = "\n\n".join(p for p in normalized_pages if p)
-        semantic_meta: Dict[str, Any] | None = None
+        openalex_meta: Dict[str, Any] | None = None
         citec_meta: Dict[str, Any] | None = None
+        openalex_ok = False
         try:
             dois = extract_dois_from_text(text)
             repec_handles = extract_repec_handles_from_text(text)
-            semantic_meta = fetch_semantic_scholar_metadata(
+            openalex_meta = fetch_openalex_metadata(
                 title=metadata.get("title"),
                 author=metadata.get("author"),
                 doi=dois[0] if dois else None,
             )
-            if repec_handles:
+            if openalex_meta:
+                oa_title = openalex_meta.get("display_name") or openalex_meta.get("title")
+                authorships = openalex_meta.get("authorships") or []
+                openalex_ok = bool(oa_title or authorships)
+            if repec_handles and not openalex_ok:
                 citec_meta = fetch_citec_plain(repec_handles[0])
         except Exception:
-            semantic_meta = None
+            openalex_meta = None
+            openalex_ok = False
             citec_meta = None
 
         title = metadata.get("title") or path.stem
         author = metadata.get("author") or "Unknown"
-        if semantic_meta:
-            s2_title = semantic_meta.get("title")
-            if (not title or title == path.stem) and s2_title:
-                title = s2_title
-            s2_authors = semantic_meta.get("authors") or []
-            names = [a.get("name") for a in s2_authors if isinstance(a, dict) and a.get("name")]
+        if openalex_meta:
+            oa_title = openalex_meta.get("display_name") or openalex_meta.get("title")
+            if (not title or title == path.stem) and oa_title:
+                title = oa_title
+            authorships = openalex_meta.get("authorships") or []
+            names = []
+            for author_entry in authorships:
+                if isinstance(author_entry, dict):
+                    author_obj = author_entry.get("author") or {}
+                    name = author_obj.get("display_name")
+                    if name:
+                        names.append(name)
             if (author.lower() in {"unknown", "none"} or not author) and names:
                 author = ", ".join(names[:3]) + (" et al." if len(names) > 3 else "")
 
@@ -875,7 +888,7 @@ def load_papers(
                 author=author,
                 text=text,
                 pages=normalized_pages or None,
-                semantic_scholar=semantic_meta,
+                openalex=openalex_meta,
                 citec=citec_meta,
             )
         )

@@ -5,12 +5,12 @@ This repo includes a lightweight, multi-step workflow runner that demonstrates:
 - Orchestrating multi-step AI pipelines
 - Persisting workflow state and step outputs
 - Async execution through Redis + RQ
-- API-driven enrichment (Semantic Scholar, CitEc, Crossref, FRED/World Bank)
+- API-driven enrichment (OpenAlex, CitEc, Crossref, FRED/World Bank)
 
 Workflow Steps
 --------------
 1. **ingest**: load PDFs and extract normalized text
-2. **enrich**: collect external metadata (Semantic Scholar + CitEc)
+2. **enrich**: collect external metadata (OpenAlex with CitEc fallback)
 3. **econ_data**: optional FRED/World Bank pulls for econ context
 4. **agentic**: LLM-driven sub-question planning, retrieval, and synthesis
 5. **index**: build FAISS index + Postgres metadata (if configured)

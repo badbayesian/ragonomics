@@ -21,7 +21,7 @@ from ragonometrics.core.main import (
 from ragonometrics.pipeline import call_openai
 from ragonometrics.core.prompts import RESEARCHER_QA_PROMPT
 from ragonometrics.pipeline.query_cache import DEFAULT_CACHE_PATH, get_cached_answer, make_cache_key, set_cached_answer
-from ragonometrics.integrations.semantic_scholar import format_semantic_scholar_context
+from ragonometrics.integrations.openalex import format_openalex_context
 from ragonometrics.integrations.citec import format_citec_context
 from ragonometrics.pipeline.workflow import run_workflow
 from ragonometrics.integrations.rq_queue import enqueue_workflow
@@ -84,10 +84,10 @@ def cmd_query(args: argparse.Namespace) -> int:
     if cached is not None:
         answer = cached
     else:
-        semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+        openalex_context = format_openalex_context(paper.openalex)
         citec_context = format_citec_context(paper.citec)
         user_input = f"Context:\n{context}\n\nQuestion: {args.question}"
-        prefix_parts = [ctx for ctx in (semantic_context, citec_context) if ctx]
+        prefix_parts = [ctx for ctx in (openalex_context, citec_context) if ctx]
         if prefix_parts:
             prefix = "\n\n".join(prefix_parts)
             user_input = f"{prefix}\n\n{user_input}"

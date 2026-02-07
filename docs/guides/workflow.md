@@ -26,3 +26,4 @@ Workflow Notes
 - `--papers` accepts a directory or a single PDF file.
 - Use `--report-question-set structured|agentic|both|none` to control report questions.
 - For faster runs, reduce `TOP_K` or use `report-question-set agentic`.
+- Each run writes a prep manifest to [`reports/prep-manifest-<run_id>.json`](https://github.com/badbayesian/ragonometrics/tree/main/reports) for corpus profiling.

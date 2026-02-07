@@ -41,7 +41,8 @@ Runtime + workflow settings (env-only)
 | `LLM_MODELS` | Extra models shown in Streamlit dropdown. | empty | CSV string | Example: `gpt-5-nano,gpt-4.1-mini`. |
 | `STREAMLIT_USERNAME` | Optional UI username. | unset | string | Login disabled if missing. |
 | `STREAMLIT_PASSWORD` | Optional UI password. | unset | string | Login disabled if missing. |
-| `SEMANTIC_SCHOLAR_API_KEY` / `S2_API_KEY` | Semantic Scholar API key. | unset | string | Either name works. |
+| `OPENALEX_API_KEY` | OpenAlex API key. | unset | string | Required for higher rate limits. |
+| `OPENALEX_MAILTO` | Contact email for OpenAlex polite pool. | unset | string | Recommended by OpenAlex. |
 | `FRED_API_KEY` | FRED API key for econ step. | unset | string | Enables econ step. |
 | `ECON_SERIES_IDS` | FRED series IDs (comma-separated). | empty | CSV string | Defaults to `GDPC1,FEDFUNDS` when econ step enabled with no list. |
 | `WORKFLOW_AGENTIC` | Enable agentic workflow. | `0` | bool | Use `1` to enable. |
@@ -53,3 +54,7 @@ Runtime + workflow settings (env-only)
 | `WORKFLOW_REPORT_QUESTIONS` | Enable structured report questions. | `1` | bool | Use `0` to disable. |
 | `WORKFLOW_REPORT_QUESTIONS_SET` | Report question set to run. | `structured` | enum | `structured|agentic|both|none`. |
 | `WORKFLOW_REPORT_QUESTION_WORKERS` | Concurrency for report questions. | `8` | int | |
+| `PREP_HASH_FILES` | Hash PDF files during prep. | `1` | bool | Set `0` for faster scans. |
+| `PREP_VALIDATE_TEXT` | Run text extraction during prep. | `0` | bool | Enables empty-text detection. |
+| `PREP_FAIL_ON_EMPTY` | Fail workflow if corpus is empty. | `0` | bool | Treats no PDFs or no text as failure. |
+| `PREP_VALIDATE_ONLY` | Exit after prep step. | `0` | bool | Writes report and skips ingest/agentic/index. |

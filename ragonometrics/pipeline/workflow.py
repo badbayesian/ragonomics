@@ -32,6 +32,7 @@ from ragonometrics.pipeline.state import (
     set_workflow_status,
 )
 from ragonometrics.pipeline.token_usage import DEFAULT_USAGE_DB
+from ragonometrics.pipeline.prep import prep_corpus
 from ragonometrics.integrations.econ_data import fetch_fred_series
 
 
@@ -635,10 +636,58 @@ def run_workflow(
         "usage_db": str(DEFAULT_USAGE_DB),
     }
 
+    # Step 0: Prep (corpus profiling)
+    prep_start = _utc_now()
+    record_step(state_db, run_id=run_id, step="prep", status="running", started_at=prep_start)
+    pdfs = _resolve_paper_paths(Path(papers_dir))
+    prep_out = prep_corpus(pdfs, report_dir=report_dir, run_id=run_id)
+    record_step(
+        state_db,
+        run_id=run_id,
+        step="prep",
+        status="completed" if prep_out.get("status") == "completed" else "failed",
+        started_at=prep_start,
+        finished_at=_utc_now(),
+        output=prep_out,
+    )
+    summary["prep"] = prep_out
+
+    validate_only = os.environ.get("PREP_VALIDATE_ONLY", "").strip() == "1"
+    if prep_out.get("status") == "failed":
+        summary["finished_at"] = _utc_now()
+        report_path = _write_report(report_dir, run_id, summary)
+        record_step(
+            state_db,
+            run_id=run_id,
+            step="report",
+            status="completed",
+            started_at=_utc_now(),
+            finished_at=_utc_now(),
+            output={"report_path": str(report_path)},
+        )
+        summary["report_path"] = str(report_path)
+        set_workflow_status(state_db, run_id, "failed")
+        return summary
+
+    if validate_only:
+        summary["finished_at"] = _utc_now()
+        report_path = _write_report(report_dir, run_id, summary)
+        record_step(
+            state_db,
+            run_id=run_id,
+            step="report",
+            status="completed",
+            started_at=_utc_now(),
+            finished_at=_utc_now(),
+            output={"report_path": str(report_path)},
+        )
+        summary["report_path"] = str(report_path)
+        set_workflow_status(state_db, run_id, "completed")
+        return summary
+
     # Step 1: Ingest
     ingest_start = _utc_now()
     record_step(state_db, run_id=run_id, step="ingest", status="running", started_at=ingest_start)
-    pdfs = _resolve_paper_paths(Path(papers_dir))
     papers = load_papers(pdfs, progress=True, progress_desc="Ingesting papers")
     ingest_out = {"num_pdfs": len(pdfs), "num_papers": len(papers)}
     record_step(
@@ -655,9 +704,9 @@ def run_workflow(
     # Step 2: Enrich
     enrich_start = _utc_now()
     record_step(state_db, run_id=run_id, step="enrich", status="running", started_at=enrich_start)
-    s2_count = sum(1 for p in papers if getattr(p, "semantic_scholar", None))
+    openalex_count = sum(1 for p in papers if getattr(p, "openalex", None))
     citec_count = sum(1 for p in papers if getattr(p, "citec", None))
-    enrich_out = {"semantic_scholar": s2_count, "citec": citec_count}
+    enrich_out = {"openalex": openalex_count, "citec": citec_count}
     record_step(
         state_db,
         run_id=run_id,

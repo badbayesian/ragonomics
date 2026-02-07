@@ -1,4 +1,4 @@
-"""Semantic Scholar API integration and lightweight caching for paper metadata."""
+"""OpenAlex API integration and lightweight caching for paper metadata."""
 
 from __future__ import annotations
 
@@ -12,24 +12,22 @@ from typing import Any, Dict, Optional
 
 import requests
 
-
 from ragonometrics.core.config import SQLITE_DIR
 
 
-DEFAULT_CACHE_PATH = SQLITE_DIR / "ragonometrics_semantic_scholar.sqlite"
-DEFAULT_FIELDS = ",".join(
+DEFAULT_CACHE_PATH = SQLITE_DIR / "ragonometrics_openalex.sqlite"
+DEFAULT_SELECT = ",".join(
     [
-        "title",
-        "abstract",
-        "authors",
-        "year",
-        "venue",
+        "id",
+        "display_name",
+        "publication_year",
+        "primary_location",
+        "host_venue",
         "doi",
-        "url",
-        "citationCount",
-        "referenceCount",
-        "influentialCitationCount",
-        "externalIds",
+        "authorships",
+        "cited_by_count",
+        "referenced_works_count",
+        "abstract_inverted_index",
     ]
 )
 
@@ -39,9 +37,9 @@ def _connect(db_path: Path) -> sqlite3.Connection:
     conn = sqlite3.connect(str(db_path))
     conn.execute(
         """
-        CREATE TABLE IF NOT EXISTS semantic_scholar_cache (
+        CREATE TABLE IF NOT EXISTS openalex_cache (
             cache_key TEXT PRIMARY KEY,
-            paper_id TEXT,
+            work_id TEXT,
             query TEXT,
             response TEXT,
             fetched_at INTEGER
@@ -54,7 +52,7 @@ def _connect(db_path: Path) -> sqlite3.Connection:
 
 def _cache_ttl_seconds() -> int:
     try:
-        days = int(os.environ.get("SEMANTIC_SCHOLAR_CACHE_TTL_DAYS", "30"))
+        days = int(os.environ.get("OPENALEX_CACHE_TTL_DAYS", "30"))
     except Exception:
         days = 30
     return max(days, 1) * 24 * 60 * 60
@@ -75,7 +73,7 @@ def get_cached_metadata(db_path: Path, cache_key: str) -> Optional[Dict[str, Any
     conn = _connect(db_path)
     try:
         cur = conn.cursor()
-        cur.execute("SELECT fetched_at, response FROM semantic_scholar_cache WHERE cache_key = ?", (cache_key,))
+        cur.execute("SELECT fetched_at, response FROM openalex_cache WHERE cache_key = ?", (cache_key,))
         row = cur.fetchone()
         if not row:
             return None
@@ -94,7 +92,7 @@ def set_cached_metadata(
     db_path: Path,
     *,
     cache_key: str,
-    paper_id: Optional[str],
+    work_id: Optional[str],
     query: Optional[str],
     response: Dict[str, Any],
 ) -> None:
@@ -103,13 +101,13 @@ def set_cached_metadata(
         cur = conn.cursor()
         cur.execute(
             """
-            INSERT OR REPLACE INTO semantic_scholar_cache
-            (cache_key, paper_id, query, response, fetched_at)
+            INSERT OR REPLACE INTO openalex_cache
+            (cache_key, work_id, query, response, fetched_at)
             VALUES (?, ?, ?, ?, ?)
             """,
             (
                 cache_key,
-                paper_id,
+                work_id,
                 query,
                 json.dumps(response, ensure_ascii=False),
                 int(time.time()),
@@ -120,19 +118,19 @@ def set_cached_metadata(
         conn.close()
 
 
-def _headers() -> Dict[str, str]:
-    headers = {"User-Agent": "Ragonometrics/0.1"}
-    key = os.environ.get("SEMANTIC_SCHOLAR_API_KEY") or os.environ.get("S2_API_KEY")
-    if key:
-        headers["x-api-key"] = key
-    return headers
-
-
 def _request_json(url: str, params: Optional[Dict[str, Any]] = None, timeout: int = 10) -> Optional[Dict[str, Any]]:
-    max_retries = int(os.environ.get("SEMANTIC_SCHOLAR_MAX_RETRIES", "2"))
+    max_retries = int(os.environ.get("OPENALEX_MAX_RETRIES", "2"))
+    payload = dict(params or {})
+    api_key = os.environ.get("OPENALEX_API_KEY", "").strip()
+    if api_key:
+        payload["api_key"] = api_key
+    mailto = (os.environ.get("OPENALEX_MAILTO") or os.environ.get("OPENALEX_EMAIL") or "").strip()
+    if mailto:
+        payload["mailto"] = mailto
+    headers = {"User-Agent": "Ragonometrics/0.1"}
     for attempt in range(max_retries + 1):
         try:
-            resp = requests.get(url, params=params, headers=_headers(), timeout=timeout)
+            resp = requests.get(url, params=payload, headers=headers, timeout=timeout)
             if resp.status_code == 404:
                 return None
             if resp.status_code == 429:
@@ -149,22 +147,29 @@ def _request_json(url: str, params: Optional[Dict[str, Any]] = None, timeout: in
     return None
 
 
-def fetch_paper_by_id(paper_id: str, fields: str = DEFAULT_FIELDS, timeout: int = 10) -> Optional[Dict[str, Any]]:
-    if not paper_id:
+def fetch_work_by_doi(doi: str, select: str = DEFAULT_SELECT, timeout: int = 10) -> Optional[Dict[str, Any]]:
+    if not doi:
         return None
-    encoded = requests.utils.quote(paper_id, safe="")
-    url = f"https://api.semanticscholar.org/graph/v1/paper/{encoded}"
-    return _request_json(url, params={"fields": fields}, timeout=timeout)
+    doi_url = doi.strip()
+    if not doi_url.lower().startswith("http"):
+        doi_url = f"https://doi.org/{doi_url}"
+    encoded = requests.utils.quote(doi_url, safe=":/")
+    url = f"https://api.openalex.org/works/{encoded}"
+    return _request_json(url, params={"select": select}, timeout=timeout)
 
 
-def search_paper(query: str, fields: str = DEFAULT_FIELDS, limit: int = 1, timeout: int = 10) -> Optional[Dict[str, Any]]:
+def search_work(query: str, select: str = DEFAULT_SELECT, limit: int = 1, timeout: int = 10) -> Optional[Dict[str, Any]]:
     if not query:
         return None
-    url = "https://api.semanticscholar.org/graph/v1/paper/search"
-    data = _request_json(url, params={"query": query, "limit": limit, "fields": fields}, timeout=timeout)
+    url = "https://api.openalex.org/works"
+    data = _request_json(
+        url,
+        params={"search": query, "per-page": limit, "select": select},
+        timeout=timeout,
+    )
     if not data:
         return None
-    items = data.get("data") or []
+    items = data.get("results") or []
     if not items:
         return None
     if isinstance(items, list):
@@ -172,7 +177,7 @@ def search_paper(query: str, fields: str = DEFAULT_FIELDS, limit: int = 1, timeo
     return None
 
 
-def fetch_semantic_scholar_metadata(
+def fetch_openalex_metadata(
     *,
     title: Optional[str],
     author: Optional[str],
@@ -181,8 +186,8 @@ def fetch_semantic_scholar_metadata(
     cache_path: Path = DEFAULT_CACHE_PATH,
     timeout: int = 10,
 ) -> Optional[Dict[str, Any]]:
-    """Fetch Semantic Scholar metadata for a paper, using DOI when possible."""
-    if os.environ.get("SEMANTIC_SCHOLAR_DISABLE", "").strip() == "1":
+    """Fetch OpenAlex metadata for a paper, using DOI when possible."""
+    if os.environ.get("OPENALEX_DISABLE", "").strip() == "1":
         return None
 
     cache_key = make_cache_key(doi=doi, title=title, author=author, year=year)
@@ -191,14 +196,12 @@ def fetch_semantic_scholar_metadata(
         return cached
 
     data = None
-    paper_id = None
+    work_id = None
 
     if doi:
-        for candidate in (doi, f"DOI:{doi}"):
-            data = fetch_paper_by_id(candidate, timeout=timeout)
-            if data:
-                paper_id = candidate
-                break
+        data = fetch_work_by_doi(doi, timeout=timeout)
+        if data:
+            work_id = data.get("id")
 
     if not data and title:
         query_parts = [title]
@@ -207,73 +210,107 @@ def fetch_semantic_scholar_metadata(
         if year:
             query_parts.append(str(year))
         query = " ".join(query_parts)
-        data = search_paper(query, timeout=timeout)
-        paper_id = data.get("paperId") if isinstance(data, dict) else None
+        data = search_work(query, timeout=timeout)
+        work_id = data.get("id") if isinstance(data, dict) else None
 
     if data:
         set_cached_metadata(
             cache_path,
             cache_key=cache_key,
-            paper_id=paper_id,
+            work_id=work_id,
             query=title or "",
             response=data,
         )
     return data
 
 
-def format_semantic_scholar_context(
+def _abstract_from_inverted_index(inv: Optional[Dict[str, Any]]) -> str:
+    if not inv or not isinstance(inv, dict):
+        return ""
+    positions = []
+    for vals in inv.values():
+        if isinstance(vals, list):
+            positions.extend([v for v in vals if isinstance(v, int)])
+    if not positions:
+        return ""
+    max_pos = max(positions)
+    words: List[str] = [""] * (max_pos + 1)
+    for token, offsets in inv.items():
+        if not isinstance(offsets, list):
+            continue
+        for pos in offsets:
+            if isinstance(pos, int) and 0 <= pos <= max_pos:
+                words[pos] = token
+    return " ".join([w for w in words if w])
+
+
+def _get_venue(meta: Dict[str, Any]) -> Optional[str]:
+    primary = meta.get("primary_location") or {}
+    source = primary.get("source") or {}
+    venue = source.get("display_name")
+    if venue:
+        return venue
+    host = meta.get("host_venue") or {}
+    return host.get("display_name")
+
+
+def format_openalex_context(
     meta: Optional[Dict[str, Any]],
     *,
     max_abstract_chars: int = 1200,
     max_authors: int = 8,
 ) -> str:
-    """Format Semantic Scholar metadata into a compact context block."""
+    """Format OpenAlex metadata into a compact context block."""
     if not meta:
         return ""
-    lines = ["Semantic Scholar Metadata:"]
+    lines = ["OpenAlex Metadata:"]
 
-    title = meta.get("title")
+    title = meta.get("display_name") or meta.get("title")
     if title:
         lines.append(f"Title: {title}")
 
-    authors = meta.get("authors") or []
-    names = []
+    authors = meta.get("authorships") or []
+    names: List[str] = []
     for author in authors:
-        if isinstance(author, dict) and author.get("name"):
-            names.append(author["name"])
+        if isinstance(author, dict):
+            author_obj = author.get("author") or {}
+            name = author_obj.get("display_name")
+            if name:
+                names.append(name)
     if names:
         suffix = " et al." if len(names) > max_authors else ""
         lines.append(f"Authors: {', '.join(names[:max_authors])}{suffix}")
 
-    year = meta.get("year")
+    year = meta.get("publication_year")
     if year:
         lines.append(f"Year: {year}")
 
-    venue = meta.get("venue")
+    venue = _get_venue(meta)
     if venue:
         lines.append(f"Venue: {venue}")
 
-    doi = meta.get("doi") or (meta.get("externalIds") or {}).get("DOI")
+    doi = meta.get("doi")
     if doi:
         lines.append(f"DOI: {doi}")
 
-    url = meta.get("url")
-    if url:
+    url = meta.get("id")
+    landing = (meta.get("primary_location") or {}).get("landing_page_url")
+    if landing:
+        lines.append(f"URL: {landing}")
+    elif url:
         lines.append(f"URL: {url}")
 
-    citation_count = meta.get("citationCount")
+    citation_count = meta.get("cited_by_count")
     if citation_count is not None:
         lines.append(f"Citation Count: {citation_count}")
 
-    reference_count = meta.get("referenceCount")
+    reference_count = meta.get("referenced_works_count")
+    if reference_count is None and isinstance(meta.get("referenced_works"), list):
+        reference_count = len(meta.get("referenced_works"))
     if reference_count is not None:
         lines.append(f"Reference Count: {reference_count}")
 
-    influential = meta.get("influentialCitationCount")
-    if influential is not None:
-        lines.append(f"Influential Citations: {influential}")
-
-    abstract = meta.get("abstract")
+    abstract = _abstract_from_inverted_index(meta.get("abstract_inverted_index"))
     if abstract:
         if len(abstract) > max_abstract_chars:
             abstract = abstract[: max_abstract_chars - 3].rstrip() + "..."

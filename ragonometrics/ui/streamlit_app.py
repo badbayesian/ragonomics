@@ -26,7 +26,7 @@ from ragonometrics.core.main import (
     prepare_chunks_for_paper,
     top_k_context,
 )
-from ragonometrics.integrations.semantic_scholar import format_semantic_scholar_context
+from ragonometrics.integrations.openalex import format_openalex_context
 from ragonometrics.integrations.citec import format_citec_context
 from ragonometrics.pipeline import call_openai
 from ragonometrics.core.prompts import RESEARCHER_QA_PROMPT
@@ -282,13 +282,13 @@ def main():
     st.subheader(paper.title)
     st.caption(f"Author: {paper.author} — {paper.path.name}")
 
-    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+    openalex_context = format_openalex_context(paper.openalex)
     citec_context = format_citec_context(paper.citec)
-    if semantic_context or citec_context:
+    if openalex_context or citec_context:
         with st.expander("External Metadata", expanded=False):
-            if semantic_context:
-                st.markdown("**Semantic Scholar**")
-                st.code(semantic_context, language="text")
+            if openalex_context:
+                st.markdown("**OpenAlex**")
+                st.code(openalex_context, language="text")
             if citec_context:
                 st.markdown("**CitEc**")
                 st.code(citec_context, language="text")
@@ -354,10 +354,10 @@ def main():
                 if cached is not None:
                     answer = cached
                 else:
-                    semantic_context = format_semantic_scholar_context(paper.semantic_scholar)
+                    openalex_context = format_openalex_context(paper.openalex)
                     citec_context = format_citec_context(paper.citec)
                     user_input = f"Context:\n{context}\n\nQuestion: {query}"
-                    prefix_parts = [ctx for ctx in (semantic_context, citec_context) if ctx]
+                    prefix_parts = [ctx for ctx in (openalex_context, citec_context) if ctx]
                     if prefix_parts:
                         user_input = f"{'\n\n'.join(prefix_parts)}\n\n{user_input}"
                     try:
