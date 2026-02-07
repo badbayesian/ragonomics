@@ -41,11 +41,11 @@ ragonometrics query --paper papers/example.pdf --question "What is the research 
 ```bash
 ragonometrics ui
 ```
-- `ragonometrics workflow`: run the multi-step workflow (optionally agentic).
+- `ragonometrics workflow`: run the multi-step workflow (optionally agentic). `--agentic` enables sub-question planning and synthesis. `--agentic-citations` extracts citations from the PDF and injects a compact citations preview into the agentic context.
 ```bash
 ragonometrics workflow --papers papers/
 ragonometrics workflow --papers papers/ --agentic --question "What is the key contribution?"
-ragonometrics workflow --papers papers/ --agentic --agentic-citations --question "What is the key contribution?"
+ragonometrics workflow --papers papers/ --agentic --agentic-citations --report-question-set both --question "What is the key contribution?"
 ```
 
 
@@ -67,4 +67,3 @@ Docs root: [docs/](https://github.com/badbayesian/ragonometrics/tree/main/docs)
 - [Onboarding](https://github.com/badbayesian/ragonometrics/blob/main/docs/guides/onboarding.md): Getting started for contributors.
 - [Contributing](https://github.com/badbayesian/ragonometrics/blob/main/docs/guides/contributing.md): Contribution guidelines.
 - [ADRs](https://github.com/badbayesian/ragonometrics/tree/main/docs/adr): Architecture decision records.
-
