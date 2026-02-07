@@ -1,0 +1,31 @@
+{
+  "run_id": "29fd6dd9d4454eeda6bc5f81ccfc4db0",
+  "created_at": "2026-02-07T03:44:17.097236+00:00",
+  "corpus_hash": "978382322b3babe108f25041236a680d4b2e904e4d7666249b70bd308956c1f6",
+  "hashing_enabled": true,
+  "validate_text": false,
+  "stats": {
+    "num_files": 1,
+    "total_size_bytes": 1025888,
+    "corpus_hash": "978382322b3babe108f25041236a680d4b2e904e4d7666249b70bd308956c1f6",
+    "hashing_enabled": true,
+    "validate_text": false,
+    "duplicate_count": 0,
+    "empty_file_count": 0,
+    "empty_text_count": 0,
+    "pdfinfo_available": true
+  },
+  "warnings": [],
+  "duplicates": [],
+  "empty_files": [],
+  "empty_text_files": [],
+  "files": [
+    {
+      "path": "papers\\Calorie Posting in Chain Restaurants - Bollinger et al. (2011).pdf",
+      "size_bytes": 1025888,
+      "mtime": 1770243864.9899416,
+      "pages": 38,
+      "sha256": "85dc7ad3f1d38b482047fafe815261a6198ce8384da3e49e2420ae5652ccd73a"
+    }
+  ]
+}
