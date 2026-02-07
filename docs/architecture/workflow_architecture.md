@@ -94,10 +94,13 @@ Each report includes:
 Agentic outputs include:
 - `subquestions`, `sub_answers`, `final_answer`
 - `report_questions` list with rich fields:
-  - `answer`, `evidence_type`, `confidence`
+  - `answer`, `question_tokens_estimate`, `evidence_type`, `confidence`
+  - `confidence_score` (0-1), `retrieval_method`
   - `citation_anchors` (page + word offsets)
   - `quote_snippet`, `table_figure`, `data_source`
   - `assumption_flag`, `assumption_notes`, `related_questions`
+  - `confidence` is derived from retrieval scores (not model self-report).
+  - `confidence_score` is the numeric retrieval score used to set the label.
 
 Concurrency
 -----------

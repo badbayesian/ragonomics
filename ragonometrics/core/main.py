@@ -589,7 +589,8 @@ def top_k_context(
     *,
     session_id: str | None = None,
     request_id: str | None = None,
-) -> str:
+    return_stats: bool = False,
+) -> str | tuple[str, Dict[str, float | str | int]]:
     """Select top-k relevant chunk text for a query.
 
     Uses hybrid retrieval when a Postgres-backed retriever is configured,
@@ -603,12 +604,13 @@ def top_k_context(
         settings: Runtime settings.
 
     Returns:
-        str: Concatenated context string.
+        str | tuple[str, dict]: Context string, or (context, retrieval stats) when requested.
     """
     queries = expand_queries(query, client, settings, session_id=session_id, request_id=request_id)
 
     # If a Postgres-backed retriever is available, prefer hybrid retrieval
     db_url = os.environ.get("DATABASE_URL")
+    stats: Dict[str, float | str | int] = {"method": "local"}
     if db_url:
         try:
             from ragonometrics.indexing.retriever import hybrid_search
@@ -630,6 +632,23 @@ def top_k_context(
                         combined[vid] = max(combined.get(vid, float("-inf")), float(score))
                 hits = sorted(combined.items(), key=lambda x: x[1], reverse=True)[: settings.top_k * 5]
                 if hits:
+                    top_scores = [float(score) for _, score in hits[: settings.top_k]]
+                    stats = {
+                        "method": "hybrid",
+                        "score_mean": float(sum(top_scores) / len(top_scores)) if top_scores else 0.0,
+                        "score_max": float(max(top_scores)) if top_scores else 0.0,
+                        "score_min": float(min(top_scores)) if top_scores else 0.0,
+                        "top_k": int(len(top_scores)),
+                    }
+                    if top_scores:
+                        score_min = stats["score_min"]
+                        score_max = stats["score_max"]
+                        if score_max != score_min:
+                            normed = [(s - score_min) / (score_max - score_min) for s in top_scores]
+                        else:
+                            normed = [1.0 for _ in top_scores]
+                        stats["score_mean_norm"] = float(sum(normed) / len(normed))
+
                     # fetch rows by id and return ordered context
                     conn = psycopg2.connect(db_url)
                     cur = conn.cursor()
@@ -672,7 +691,10 @@ def top_k_context(
                         _, text, page, start_word, end_word = r
                         meta = f"(page {page} words {start_word}-{end_word})"
                         out_parts.append(f"{meta}\n{text}")
-                    return "\n\n".join(out_parts)
+                    context = "\n\n".join(out_parts)
+                    if return_stats:
+                        return context, stats
+                    return context
             except Exception:
                 # fall back to local embedding retrieval if DB is unreachable
                 pass
@@ -711,6 +733,22 @@ def top_k_context(
     scored = [(idx, max(cosine(qemb, emb) for qemb in query_embeddings)) for idx, emb in enumerate(chunk_embeddings)]
     scored.sort(key=lambda x: x[1], reverse=True)
     top = [idx for idx, _ in scored[: settings.top_k * 5]]
+    top_scores = [float(score) for _, score in scored[: settings.top_k]]
+    stats = {
+        "method": "local",
+        "score_mean": float(sum(top_scores) / len(top_scores)) if top_scores else 0.0,
+        "score_max": float(max(top_scores)) if top_scores else 0.0,
+        "score_min": float(min(top_scores)) if top_scores else 0.0,
+        "top_k": int(len(top_scores)),
+    }
+    if top_scores:
+        score_min = stats["score_min"]
+        score_max = stats["score_max"]
+        if score_max != score_min:
+            normed = [(s - score_min) / (score_max - score_min) for s in top_scores]
+        else:
+            normed = [1.0 for _ in top_scores]
+        stats["score_mean_norm"] = float(sum(normed) / len(normed))
 
     # optional rerank via LLM
     rerank_top_n = int(os.environ.get("RERANK_TOP_N", "30"))
@@ -744,7 +782,10 @@ def top_k_context(
             out_parts.append(f"{meta}\n{chunk.get('text')}")
         else:
             out_parts.append(str(chunk))
-    return "\n\n".join(out_parts)
+    context = "\n\n".join(out_parts)
+    if return_stats:
+        return context, stats
+    return context
 
 
 def prepare_chunks_for_paper(paper: Paper, settings: Settings) -> List[Dict]:

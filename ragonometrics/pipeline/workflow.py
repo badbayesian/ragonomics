@@ -41,6 +41,16 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def _estimate_tokens(text: str) -> int:
+    if not text:
+        return 0
+    text = str(text)
+    words = text.split()
+    word_estimate = len(words)
+    char_estimate = max(1, int(len(text) / 4))
+    return max(word_estimate, char_estimate)
+
+
 def _resolve_paper_paths(papers_path: Path) -> List[Path]:
     if papers_path.is_file():
         if papers_path.suffix.lower() == ".pdf":
@@ -189,6 +199,31 @@ def _split_context_chunks(context: str) -> List[Dict[str, Any]]:
             }
         )
     return chunks
+
+
+def _confidence_from_retrieval_stats(stats: Dict[str, Any] | None) -> tuple[str, float, str]:
+    if not stats or int(stats.get("top_k", 0) or 0) <= 0:
+        return "low", 0.0, "unknown"
+    method = str(stats.get("method") or "local")
+    score_mean = float(stats.get("score_mean") or 0.0)
+    score_min = float(stats.get("score_min") or score_mean)
+    score_max = float(stats.get("score_max") or score_mean)
+    if method == "local":
+        score = max(0.0, min(1.0, score_mean))
+    else:
+        spread = score_max - score_min
+        if spread > 0:
+            score = (score_mean - score_min) / spread
+        else:
+            score = 0.5
+        score = max(0.0, min(1.0, score))
+    if score >= 0.6:
+        label = "high"
+    elif score >= 0.35:
+        label = "medium"
+    else:
+        label = "low"
+    return label, score, method
 
 
 def _build_report_prompt(
@@ -409,6 +444,7 @@ def _report_questions_from_sub_answers(sub_answers: List[Dict[str, str]]) -> Lis
                 "category": "P) Previous questions",
                 "question": item.get("question", ""),
                 "answer": item.get("answer", ""),
+                "question_tokens_estimate": item.get("question_tokens_estimate"),
             }
         )
     return report
@@ -424,16 +460,20 @@ def _answer_report_question_item(
     citations_context: str,
     item: Dict[str, str],
 ) -> Dict[str, Any]:
-    context = top_k_context(
+    context, retrieval_stats = top_k_context(
         chunks,
         chunk_embeddings,
         query=item["question"],
         client=client,
         settings=settings,
+        return_stats=True,
     )
     if citations_context:
         context = f"{context}\n\n{citations_context}"
     parsed_chunks = _split_context_chunks(context)
+    retrieval_confidence, confidence_score, retrieval_method = _confidence_from_retrieval_stats(
+        retrieval_stats
+    )
     anchor_defaults = [
         {
             "page": c["page"],
@@ -478,8 +518,11 @@ def _answer_report_question_item(
         "category": item["category"],
         "question": item["question"],
         "answer": answer_text,
+        "question_tokens_estimate": _estimate_tokens(item["question"]),
         "evidence_type": parsed.get("evidence_type") or "unspecified",
-        "confidence": parsed.get("confidence") or "medium",
+        "confidence": retrieval_confidence,
+        "confidence_score": confidence_score,
+        "retrieval_method": retrieval_method,
         "citation_anchors": citation_anchors,
         "quote_snippet": quote_snippet,
         "table_figure": parsed.get("table_figure"),
@@ -546,8 +589,11 @@ def _answer_report_questions(
                     "category": item["category"],
                     "question": item["question"],
                     "answer": f"ERROR: {exc}",
+                    "question_tokens_estimate": _estimate_tokens(item["question"]),
                     "evidence_type": "unspecified",
                     "confidence": "low",
+                    "confidence_score": 0.0,
+                    "retrieval_method": "unknown",
                     "citation_anchors": [],
                     "quote_snippet": "",
                     "table_figure": None,
@@ -586,7 +632,11 @@ def _answer_subquestion(
         max_output_tokens=None,
         usage_context="agent_answer",
     ).strip()
-    return {"question": subq, "answer": answer}
+    return {
+        "question": subq,
+        "answer": answer,
+        "question_tokens_estimate": _estimate_tokens(subq),
+    }
 
 
 def run_workflow(
@@ -829,6 +879,7 @@ def run_workflow(
                 agentic_out = {
                     "status": "completed",
                     "question": question,
+                    "question_tokens_estimate": _estimate_tokens(question),
                     "subquestions": subquestions,
                     "sub_answers": sub_answers,
                     "final_answer": final_answer,
